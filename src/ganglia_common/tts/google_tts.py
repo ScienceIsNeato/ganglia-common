@@ -28,7 +28,8 @@ from google.api_core import exceptions as google_exceptions
 
 # Local imports
 from ganglia_common.logger import Logger
-from utils import get_tempdir, exponential_backoff
+from ganglia_common.utils.file_utils import get_tempdir
+from ganglia_common.utils.retry_utils import exponential_backoff
 from ganglia_common.utils.performance_profiler import is_timing_enabled
 
 class TextToSpeech(ABC):

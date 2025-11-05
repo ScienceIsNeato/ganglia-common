@@ -12,9 +12,9 @@ from datetime import datetime
 from typing import Tuple, List
 from openai import OpenAI
 
-from tts import TextToSpeech
+from ganglia_common.tts.google_tts import TextToSpeech
 from ganglia_common.logger import Logger
-from utils import get_tempdir
+from ganglia_common.utils.file_utils import get_tempdir
 from ganglia_common.utils.performance_profiler import is_timing_enabled
 
 

@@ -4,7 +4,6 @@ import os
 import tempfile
 from datetime import datetime
 from ganglia_common.logger import Logger
-from ttv.log_messages import LOG_TTV_DIR_CREATED
 
 # Global variable to store the current TTV directory
 _current_ttv_dir = None
@@ -40,7 +39,7 @@ def get_timestamped_ttv_dir() -> str:
         timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
         _current_ttv_dir = os.path.join(get_tempdir(), "ttv", timestamp)
         os.makedirs(_current_ttv_dir, exist_ok=True)
-        Logger.print_info(f"{LOG_TTV_DIR_CREATED}{_current_ttv_dir}")
+        Logger.print_info(f"{"📁 TTV directory created: "}{_current_ttv_dir}")
     return _current_ttv_dir
 
 def get_config_path():

@@ -15,7 +15,7 @@ from openai import OpenAI
 
 # Local imports
 from ganglia_common.logger import Logger
-from utils import get_tempdir
+from ganglia_common.utils.file_utils import get_tempdir
 from ganglia_common.utils.performance_profiler import is_timing_enabled
 
 class ChatGPTQueryDispatcher:
