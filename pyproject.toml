@@ -1,0 +1,10 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_backend"
+
+[project]
+name = "ganglia-common"
+version = "0.1.0"
+description = "Shared utilities for GANGLIA ecosystem"
+requires-python = ">=3.9"
+
