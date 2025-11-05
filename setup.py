@@ -14,6 +14,9 @@ setup(
         "google-cloud-storage>=2.10.0",
         "gTTS>=2.5.0",
         "requests>=2.31.0",
+        "blessed>=1.20.0",
+        "psutil>=5.9.5",
+        "pydantic>=2.3.0",
     ],
 )
 
