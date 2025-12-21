@@ -7,7 +7,13 @@ from google.cloud import storage
 from google.oauth2 import service_account
 from ganglia_common.logger import Logger
 
-def upload_to_gcs(local_file_path: str, bucket_name: str, project_name: str, destination_blob_name: Optional[str] = None) -> bool:
+
+def upload_to_gcs(
+    local_file_path: str,
+    bucket_name: str,
+    project_name: str,
+    destination_blob_name: Optional[str] = None,
+) -> bool:
     """Upload a file to Google Cloud Storage.
 
     Args:
@@ -21,11 +27,15 @@ def upload_to_gcs(local_file_path: str, bucket_name: str, project_name: str, des
         bool: True if upload was successful, False otherwise
     """
     try:
-        service_account_path = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
+        service_account_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
         if not service_account_path:
-            raise ValueError("GOOGLE_APPLICATION_CREDENTIALS environment variable not set")
+            raise ValueError(
+                "GOOGLE_APPLICATION_CREDENTIALS environment variable not set"
+            )
 
-        credentials = service_account.Credentials.from_service_account_file(service_account_path)
+        credentials = service_account.Credentials.from_service_account_file(
+            service_account_path
+        )
         storage_client = storage.Client(credentials=credentials, project=project_name)
 
         if not destination_blob_name:
@@ -39,7 +49,10 @@ def upload_to_gcs(local_file_path: str, bucket_name: str, project_name: str, des
         Logger.print_error(f"Error uploading file to cloud: {error}")
         return False
 
-def get_video_stream_url(blob: storage.Blob, expiration_minutes: int = 60, service_account_path: str = None) -> str:
+
+def get_video_stream_url(
+    blob: storage.Blob, expiration_minutes: int = 60, service_account_path: str = None
+) -> str:
     """Generate a signed URL for streaming a video from GCS.
 
     Args:
@@ -69,14 +82,15 @@ def get_video_stream_url(blob: storage.Blob, expiration_minutes: int = 60, servi
     # If service account path provided, use it to create new client
     if service_account_path:
         if not os.path.exists(service_account_path):
-            raise ValueError(f"Service account file not found at: {service_account_path}")
+            raise ValueError(
+                f"Service account file not found at: {service_account_path}"
+            )
 
         credentials = service_account.Credentials.from_service_account_file(
             service_account_path
         )
         storage_client = storage.Client(
-            credentials=credentials,
-            project=blob.bucket.client.project
+            credentials=credentials, project=blob.bucket.client.project
         )
         # Get a new blob instance with the service account client
         bucket = storage_client.get_bucket(blob.bucket.name)
@@ -86,16 +100,20 @@ def get_video_stream_url(blob: storage.Blob, expiration_minutes: int = 60, servi
     try:
         url = blob.generate_signed_url(
             expiration=timedelta(minutes=expiration_minutes),
-            method='GET',
-            response_type='video/mp4',  # Ensure proper content-type for video streaming
-            version='v4'  # Use latest version of signing
+            method="GET",
+            response_type="video/mp4",  # Ensure proper content-type for video streaming
+            version="v4",  # Use latest version of signing
         )
         print(f"✓ Generated stream URL (valid for {expiration_minutes} minutes)")
         return url
     except Exception as e:
         print("\nError generating signed URL. Make sure you have:")
-        print("1. Set GOOGLE_APPLICATION_CREDENTIALS environment variable to point to your service account key file")
+        print(
+            "1. Set GOOGLE_APPLICATION_CREDENTIALS environment variable to point to your service account key file"
+        )
         print("   export GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json")
         print("2. OR provided the service_account_path parameter")
         print("3. The service account has Storage Object Viewer permissions")
-        raise ValueError("Failed to generate signed URL. See above for troubleshooting steps.") from e
+        raise ValueError(
+            "Failed to generate signed URL. See above for troubleshooting steps."
+        ) from e

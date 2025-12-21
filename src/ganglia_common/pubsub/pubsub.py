@@ -18,31 +18,36 @@ class EventType(Enum):
     """Types of events that can be published on the pubsub system."""
 
     # Story generation related events
-    STORY_INFO_NEEDED = auto()        # Need to gather specific story info
-    STORY_INFO_RECEIVED = auto()      # User provided requested story info
-    STORY_CONFIG_COMPLETE = auto()    # All info gathered, config ready
-    TTV_CONFIG_GENERATED = auto()     # TTV configuration file has been generated
+    STORY_INFO_NEEDED = auto()  # Need to gather specific story info
+    STORY_INFO_RECEIVED = auto()  # User provided requested story info
+    STORY_CONFIG_COMPLETE = auto()  # All info gathered, config ready
+    TTV_CONFIG_GENERATED = auto()  # TTV configuration file has been generated
 
     # Video generation related events
-    TTV_PROCESS_STARTED = auto()      # TTV process has started
-    TTV_PROCESS_PROGRESS = auto()     # TTV process progress update
-    TTV_PROCESS_COMPLETED = auto()    # TTV process has completed
-    TTV_PROCESS_FAILED = auto()       # TTV process failed
+    TTV_PROCESS_STARTED = auto()  # TTV process has started
+    TTV_PROCESS_PROGRESS = auto()  # TTV process progress update
+    TTV_PROCESS_COMPLETED = auto()  # TTV process has completed
+    TTV_PROCESS_FAILED = auto()  # TTV process failed
 
     # Conversation related events
-    USER_PROFILE_UPDATED = auto()     # User profile information was updated
-    CONVERSATION_STARTED = auto()     # New conversation started
-    CONVERSATION_ENDED = auto()       # Conversation ended
+    USER_PROFILE_UPDATED = auto()  # User profile information was updated
+    CONVERSATION_STARTED = auto()  # New conversation started
+    CONVERSATION_ENDED = auto()  # Conversation ended
 
     # General purpose events
-    CUSTOM = auto()                   # Custom event type for extensibility
+    CUSTOM = auto()  # Custom event type for extensibility
 
 
 class Event:
     """Represents an event in the pubsub system."""
 
-    def __init__(self, event_type: EventType, data: Dict[str, Any] = None,
-                 source: str = None, target: str = None):
+    def __init__(
+        self,
+        event_type: EventType,
+        data: Dict[str, Any] = None,
+        source: str = None,
+        target: str = None,
+    ):
         """
         Initialize a new event.
 
@@ -60,7 +65,9 @@ class Event:
         self.timestamp = time.time()  # Event creation time
 
     def __str__(self):
-        return f"Event({self.event_type.name}, source={self.source}, target={self.target})"
+        return (
+            f"Event({self.event_type.name}, source={self.source}, target={self.target})"
+        )
 
 
 class PubSub:
@@ -117,7 +124,10 @@ class PubSub:
             event_type: The event type to unsubscribe from
             callback: The callback function to remove
         """
-        if event_type in self._subscribers and callback in self._subscribers[event_type]:
+        if (
+            event_type in self._subscribers
+            and callback in self._subscribers[event_type]
+        ):
             self._subscribers[event_type].remove(callback)
             Logger.print_debug(f"Unsubscribed from {event_type.name} events")
 
@@ -160,6 +170,7 @@ class PubSub:
 
 # Singleton instance
 _instance = None
+
 
 def get_pubsub():
     """Get the singleton PubSub instance."""

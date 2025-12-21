@@ -18,6 +18,7 @@ from ganglia_common.logger import Logger
 from ganglia_common.utils.file_utils import get_tempdir
 from ganglia_common.utils.performance_profiler import is_timing_enabled
 
+
 class ChatGPTQueryDispatcher:
     """A dispatcher for managing conversations with OpenAI's ChatGPT.
 
@@ -25,7 +26,13 @@ class ChatGPTQueryDispatcher:
     and provides utilities for content filtering and token management.
     """
 
-    def __init__(self, pre_prompt=None, config_file_path=None, audio_output=False, audio_voice="alloy"):
+    def __init__(
+        self,
+        pre_prompt=None,
+        config_file_path=None,
+        audio_output=False,
+        audio_voice="alloy",
+    ):
         """Initialize the ChatGPT query dispatcher.
 
         Args:
@@ -35,7 +42,9 @@ class ChatGPTQueryDispatcher:
             audio_voice (str): Voice to use for audio output (alloy, echo, fable, onyx, nova, shimmer)
         """
         self.client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
-        default_config = os.path.join(os.path.dirname(__file__), 'config', 'ganglia_config.json')
+        default_config = os.path.join(
+            os.path.dirname(__file__), "config", "ganglia_config.json"
+        )
         self.config_file_path = config_file_path or default_config
         self.messages = []
         self.audio_output = audio_output
@@ -80,29 +89,35 @@ class ChatGPTQueryDispatcher:
                 model=self.model,
                 modalities=["text", "audio"],
                 audio={"voice": self.audio_voice, "format": "wav"},
-                messages=self.messages
+                messages=self.messages,
             )
             reply = chat.choices[0].message.content or ""
             audio_data = chat.choices[0].message.audio
 
             # Check if audio was actually returned
-            if not audio_data or not hasattr(audio_data, 'data'):
-                Logger.print_warning("⚠️  Audio output requested but not received from API. Falling back to TTS.")
+            if not audio_data or not hasattr(audio_data, "data"):
+                Logger.print_warning(
+                    "⚠️  Audio output requested but not received from API. Falling back to TTS."
+                )
                 # Fall back to regular text-only response + TTS
                 if not reply:
                     reply = "[No response received]"
                 self.messages.append({"role": "assistant", "content": reply})
-                return reply  # Return text only, will trigger TTS in conversation handler
+                return (
+                    reply  # Return text only, will trigger TTS in conversation handler
+                )
 
             # Get text transcript from audio if content is missing
-            if not reply and hasattr(audio_data, 'transcript'):
+            if not reply and hasattr(audio_data, "transcript"):
                 reply = audio_data.transcript or "[Audio response - no transcript]"
 
             # Save audio to file
             timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
             temp_dir = get_tempdir()
             os.makedirs(os.path.join(temp_dir, "tts"), exist_ok=True)
-            audio_file = os.path.join(temp_dir, "tts", f"audio_response_{timestamp}.wav")
+            audio_file = os.path.join(
+                temp_dir, "tts", f"audio_response_{timestamp}.wav"
+            )
 
             # Decode base64 audio and save (audio_data is an object, not a dict)
             audio_bytes = base64.b64decode(audio_data.data)
@@ -113,34 +128,47 @@ class ChatGPTQueryDispatcher:
 
             elapsed = time() - start_time
             if is_timing_enabled():
-                Logger.print_perf(f"⏱️  [LLM+AUDIO] Response received in {elapsed:.2f}s ({len(reply)} chars + audio)")
+                Logger.print_perf(
+                    f"⏱️  [LLM+AUDIO] Response received in {elapsed:.2f}s ({len(reply)} chars + audio)"
+                )
             else:
-                Logger.print_info(f"AI response (with audio) received in {elapsed:.1f} seconds.")
+                Logger.print_info(
+                    f"AI response (with audio) received in {elapsed:.1f} seconds."
+                )
 
             # Save text response
-            with open(os.path.join(temp_dir, f"chatgpt_output_{timestamp}_raw.txt"), "w", encoding='utf-8') as file:
+            with open(
+                os.path.join(temp_dir, f"chatgpt_output_{timestamp}_raw.txt"),
+                "w",
+                encoding="utf-8",
+            ) as file:
                 file.write(reply)
 
             return reply, audio_file
         else:
             # Standard text-only response
             chat = self.client.chat.completions.create(
-                model=self.model,
-                messages=self.messages
+                model=self.model, messages=self.messages
             )
             reply = chat.choices[0].message.content
             self.messages.append({"role": "assistant", "content": reply})
 
             elapsed = time() - start_time
             if is_timing_enabled():
-                Logger.print_perf(f"⏱️  [LLM] Response received in {elapsed:.2f}s ({len(reply)} chars)")
+                Logger.print_perf(
+                    f"⏱️  [LLM] Response received in {elapsed:.2f}s ({len(reply)} chars)"
+                )
             else:
                 Logger.print_info(f"AI response received in {elapsed:.1f} seconds.")
 
             timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
             temp_dir = get_tempdir()
 
-            with open(os.path.join(temp_dir, f"chatgpt_output_{timestamp}_raw.txt"), "w", encoding='utf-8') as file:
+            with open(
+                os.path.join(temp_dir, f"chatgpt_output_{timestamp}_raw.txt"),
+                "w",
+                encoding="utf-8",
+            ) as file:
                 file.write(reply)
 
             return reply
@@ -165,19 +193,19 @@ class ChatGPTQueryDispatcher:
         Logger.print_debug("Sending streaming query to AI server...")
 
         stream = self.client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=self.messages,
-            stream=True
+            model="gpt-4o-mini", messages=self.messages, stream=True
         )
 
         full_response = ""
         current_sentence = ""
-        sentence_endings = ('.', '!', '?', '\n')
+        sentence_endings = (".", "!", "?", "\n")
         first_chunk_received = False
 
         for chunk in stream:
             if not first_chunk_received and is_timing_enabled():
-                Logger.print_perf(f"⏱️  [LLM] First chunk received (TTFB: {time() - start_time:.2f}s)")
+                Logger.print_perf(
+                    f"⏱️  [LLM] First chunk received (TTFB: {time() - start_time:.2f}s)"
+                )
                 first_chunk_received = True
             if chunk.choices[0].delta.content:
                 content = chunk.choices[0].delta.content
@@ -185,7 +213,9 @@ class ChatGPTQueryDispatcher:
                 current_sentence += content
 
                 # Check if we've completed a sentence
-                if any(current_sentence.rstrip().endswith(end) for end in sentence_endings):
+                if any(
+                    current_sentence.rstrip().endswith(end) for end in sentence_endings
+                ):
                     sentence = current_sentence.strip()
                     if sentence:  # Only yield non-empty sentences
                         Logger.print_debug(f"Streaming sentence: {sentence[:50]}...")
@@ -201,13 +231,19 @@ class ChatGPTQueryDispatcher:
         self.messages.append({"role": "assistant", "content": full_response})
 
         elapsed = time() - start_time
-        Logger.print_debug(f"AI response streamed in {elapsed:.1f} seconds ({len(full_response)} chars)")
+        Logger.print_debug(
+            f"AI response streamed in {elapsed:.1f} seconds ({len(full_response)} chars)"
+        )
 
         # Save the response to disk
         timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
         temp_dir = get_tempdir()
 
-        with open(os.path.join(temp_dir, f"chatgpt_output_{timestamp}_raw.txt"), "w", encoding='utf-8') as file:
+        with open(
+            os.path.join(temp_dir, f"chatgpt_output_{timestamp}_raw.txt"),
+            "w",
+            encoding="utf-8",
+        ) as file:
             file.write(full_response)
 
     def rotate_session_history(self):
@@ -282,6 +318,6 @@ class ChatGPTQueryDispatcher:
             "3. Remove any potentially sensitive or controversial content",
             "4. Keep the core story and emotional tone\n",
             f"\nStory to rewrite:\n{content}\n",
-            "\nReturn only the rewritten story with no additional text or explanation."
+            "\nReturn only the rewritten story with no additional text or explanation.",
         ]
         return "".join(filter_instructions)

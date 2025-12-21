@@ -7,7 +7,7 @@ asynchronous communication between components.
 import unittest
 import time
 from unittest.mock import MagicMock
-from ganglia_common.pubsub import get_pubsub, Event, EventType, PubSub
+from ganglia_common.pubsub import get_pubsub, Event, EventType
 
 
 class TestPubSub(unittest.TestCase):
@@ -37,7 +37,7 @@ class TestPubSub(unittest.TestCase):
             event_type=EventType.STORY_INFO_NEEDED,
             data=event_data,
             source="test",
-            target="user123"
+            target="user123",
         )
         self.pubsub.publish(event)
 
@@ -67,7 +67,7 @@ class TestPubSub(unittest.TestCase):
         event = Event(
             event_type=EventType.STORY_INFO_NEEDED,
             data={"info_type": "story_idea"},
-            source="test"
+            source="test",
         )
         self.pubsub.publish(event)
 
@@ -91,7 +91,7 @@ class TestPubSub(unittest.TestCase):
         event = Event(
             event_type=EventType.STORY_INFO_NEEDED,
             data={"info_type": "story_idea"},
-            source="test"
+            source="test",
         )
         self.pubsub.publish(event)
 
@@ -117,7 +117,7 @@ class TestPubSub(unittest.TestCase):
             event_type=EventType.STORY_INFO_NEEDED,
             data={"info_type": "story_idea"},
             source="test",
-            target="user123"
+            target="user123",
         )
 
         # Set up the callbacks to check the target
@@ -158,7 +158,7 @@ class TestPubSub(unittest.TestCase):
         event = Event(
             event_type=EventType.STORY_INFO_NEEDED,
             data={"info_type": "story_idea"},
-            source="test"
+            source="test",
         )
         self.pubsub.publish(event)
 

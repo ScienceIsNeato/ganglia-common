@@ -71,13 +71,13 @@ class PerformanceStats:
             median = values[n // 2]
 
         return {
-            'count': n,
-            'mean': sum(values) / n,
-            'median': median,
-            'p95': values[int(n * 0.95)] if n > 1 else values[0],
-            'p99': values[int(n * 0.99)] if n > 1 else values[0],
-            'min': values[0],
-            'max': values[-1]
+            "count": n,
+            "mean": sum(values) / n,
+            "median": median,
+            "p95": values[int(n * 0.95)] if n > 1 else values[0],
+            "p99": values[int(n * 0.99)] if n > 1 else values[0],
+            "min": values[0],
+            "max": values[-1],
         }
 
     def print_summary(self):
@@ -159,6 +159,7 @@ def timed(name: Optional[str] = None, log: bool = True, collect_stats: bool = Tr
         def another_function():
             pass
     """
+
     def decorator(func):
         operation_name = name or func.__name__
 
@@ -178,6 +179,7 @@ def timed(name: Optional[str] = None, log: bool = True, collect_stats: bool = Tr
                     _global_stats.record(operation_name, elapsed)
 
         return wrapper
+
     return decorator
 
 
@@ -350,7 +352,9 @@ class ConversationTimer:
         roundtrip = self.get_roundtrip_duration()
         if roundtrip:
             Logger.print_perf("")
-            Logger.print_perf(f"⏱️  TOTAL LATENCY: {roundtrip:.2f}s (user stops speaking → AI audio starts)")
+            Logger.print_perf(
+                f"⏱️  TOTAL LATENCY: {roundtrip:.2f}s (user stops speaking → AI audio starts)"
+            )
 
         Logger.print_perf("=" * 80)
         Logger.print_perf("")

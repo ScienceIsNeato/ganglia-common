@@ -21,8 +21,7 @@ class TextToSpeech(ABC):
     """
 
     @abstractmethod
-    def convert_text_to_speech(self, text: str, voice: Voice,
-                             thread_id: str = None):
+    def convert_text_to_speech(self, text: str, voice: Voice, thread_id: str = None):
         """Convert text to speech using the specified voice.
 
         Args:
@@ -62,7 +61,7 @@ class TextToSpeech(ABC):
         Returns:
             list: List of text chunks
         """
-        sentences = [match.group() for match in re.finditer(r'[^.!?]*[.!?]', text)]
+        sentences = [match.group() for match in re.finditer(r"[^.!?]*[.!?]", text)]
         chunks = []
 
         for sentence in sentences:
@@ -82,11 +81,11 @@ class TextToSpeech(ABC):
             raw_response: The text response to display
             suppress_text_output: If True, don't print "GANGLIA says..." (for streaming)
         """
-        if file_path.endswith('.txt'):
+        if file_path.endswith(".txt"):
             file_path = self.concatenate_audio_from_text(file_path)
 
         # Only play audio if explicitly enabled
-        if os.getenv('PLAYBACK_MEDIA_IN_TESTS', 'false').lower() == 'true':
+        if os.getenv("PLAYBACK_MEDIA_IN_TESTS", "false").lower() == "true":
             # Prepare the play command and determine the audio duration
             play_command, audio_duration = self.prepare_playback(file_path)
 
@@ -99,14 +98,16 @@ class TextToSpeech(ABC):
 
             # Mark the moment audio playback begins
             if is_timing_enabled():
-                Logger.print_perf(f"⏱️  [PLAYBACK] Starting audio playback NOW! (duration: {audio_duration:.1f}s)")
+                Logger.print_perf(
+                    f"⏱️  [PLAYBACK] Starting audio playback NOW! (duration: {audio_duration:.1f}s)"
+                )
 
             # Start playback in a non-blocking manner
             playback_process = subprocess.Popen(
                 play_command,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
-                stdin=subprocess.DEVNULL
+                stdin=subprocess.DEVNULL,
             )
 
             # Wait for playback to finish (no enter key monitoring for streaming)
@@ -124,7 +125,7 @@ class TextToSpeech(ABC):
             # Use select to check if input is available (non-blocking check)
             if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
                 key_press = sys.stdin.read(1)  # Read single character
-                if key_press == '\n':  # Check for Enter key
+                if key_press == "\n":  # Check for Enter key
                     Logger.print_debug("Enter key detected. Terminating playback...")
                     playback_process.terminate()
                     break
@@ -140,15 +141,22 @@ class TextToSpeech(ABC):
         """
         output_file = "combined_audio.mp3"
         concat_command = [
-            "ffmpeg", "-y", "-f", "concat", "-safe", "0",
-            "-i", text_file_path, output_file
+            "ffmpeg",
+            "-y",
+            "-f",
+            "concat",
+            "-safe",
+            "0",
+            "-i",
+            text_file_path,
+            output_file,
         ]
         subprocess.run(
             concat_command,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             stdin=subprocess.DEVNULL,
-            check=True
+            check=True,
         )
         return output_file
 
@@ -161,11 +169,16 @@ class TextToSpeech(ABC):
         Returns:
             tuple: (play_command: list, audio_duration: float)
         """
-        if file_path.endswith('.mp4'):
+        if file_path.endswith(".mp4"):
             play_command = ["ffplay", "-nodisp", "-autoexit", file_path]
         else:
             play_command = [
-                "ffplay", "-nodisp", "-af", "volume=5", "-autoexit", file_path
+                "ffplay",
+                "-nodisp",
+                "-af",
+                "volume=5",
+                "-autoexit",
+                file_path,
             ]
         audio_duration = self.get_audio_duration(file_path)
         return play_command, audio_duration
@@ -180,13 +193,16 @@ class TextToSpeech(ABC):
             float: Duration of the audio in seconds
         """
         duration_command = [
-            "ffprobe", "-v", "error", "-show_entries", "format=duration",
-            "-of", "default=noprint_wrappers=1:nokey=1", file_path
+            "ffprobe",
+            "-v",
+            "error",
+            "-show_entries",
+            "format=duration",
+            "-of",
+            "default=noprint_wrappers=1:nokey=1",
+            file_path,
         ]
         duration_output = subprocess.run(
-            duration_command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            check=True
-        ).stdout.decode('utf-8')
+            duration_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True
+        ).stdout.decode("utf-8")
         return float(duration_output.strip())

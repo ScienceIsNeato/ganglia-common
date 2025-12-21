@@ -8,7 +8,7 @@ from typing import Literal
 @dataclass
 class Voice:
     """Represents a voice configuration for TTS engines.
-    
+
     Attributes:
         engine: The TTS engine to use ('google' or 'chatterbox')
         name: Human-readable name for the voice
@@ -18,11 +18,12 @@ class Voice:
         duration_seconds: Duration of reference audio in seconds
         sample_text: Text content of the reference audio sample
     """
+
     engine: Literal["google", "chatterbox"]
     name: str
     id: str | None = None
     ref_audio: str | None = None
-    
+
     # Extended Metadata
     created_at: float = field(default_factory=time.time)
     duration_seconds: float = 0.0

@@ -35,7 +35,7 @@ class OpenAITTS(TextToSpeech):
         "fable": "British accent",
         "onyx": "Deep and authoritative",
         "nova": "Warm and friendly",
-        "shimmer": "Soft and gentle"
+        "shimmer": "Soft and gentle",
     }
 
     def __init__(self, voice: str = "onyx"):
@@ -49,7 +49,9 @@ class OpenAITTS(TextToSpeech):
         self.model = "tts-1"  # Optimized for speed
         Logger.print_info(f"OpenAI TTS initialized with voice: {self.voice}")
 
-    def _convert_text_to_speech_impl(self, text: str, voice_id: str = None, thread_id: str = None) -> Tuple[bool, str]:
+    def _convert_text_to_speech_impl(
+        self, text: str, voice_id: str = None, thread_id: str = None
+    ) -> Tuple[bool, str]:
         """Internal implementation of text-to-speech conversion.
 
         Args:
@@ -70,18 +72,19 @@ class OpenAITTS(TextToSpeech):
             voice = voice_id if voice_id in self.VOICES else self.voice
 
             if is_timing_enabled():
-                Logger.print_perf(f"⏱️  [TTS] Converting text to speech ({len(text)} chars)...")
+                Logger.print_perf(
+                    f"⏱️  [TTS] Converting text to speech ({len(text)} chars)..."
+                )
             else:
-                Logger.print_debug(f"{thread_prefix}Converting text to speech with OpenAI TTS...")
+                Logger.print_debug(
+                    f"{thread_prefix}Converting text to speech with OpenAI TTS..."
+                )
 
             tts_start = time.time()
 
             # Call OpenAI TTS API
             response = self.client.audio.speech.create(
-                model=self.model,
-                voice=voice,
-                input=text,
-                response_format="mp3"
+                model=self.model, voice=voice, input=text, response_format="mp3"
             )
 
             tts_elapsed = time.time() - tts_start
@@ -102,10 +105,14 @@ class OpenAITTS(TextToSpeech):
             return True, file_path
 
         except Exception as e:
-            Logger.print_error(f"{thread_prefix}Error generating speech with OpenAI TTS: {e}")
+            Logger.print_error(
+                f"{thread_prefix}Error generating speech with OpenAI TTS: {e}"
+            )
             return False, None
 
-    def convert_text_to_speech(self, text: str, voice_id: str = None, thread_id: str = None) -> Tuple[bool, str]:
+    def convert_text_to_speech(
+        self, text: str, voice_id: str = None, thread_id: str = None
+    ) -> Tuple[bool, str]:
         """Convert text to speech using OpenAI TTS API.
 
         Args:
@@ -120,7 +127,9 @@ class OpenAITTS(TextToSpeech):
         MAX_LENGTH = 4000  # Leave some buffer
 
         if len(text) > MAX_LENGTH:
-            Logger.print_warning(f"Text too long ({len(text)} chars), splitting into chunks...")
+            Logger.print_warning(
+                f"Text too long ({len(text)} chars), splitting into chunks..."
+            )
             # For long text, use the chunking/concatenation approach
             chunks = self.split_text(text, max_length=MAX_LENGTH)
             Logger.print_debug(f"Split into {len(chunks)} chunks")
@@ -130,7 +139,7 @@ class OpenAITTS(TextToSpeech):
                 success, file_path = self._convert_text_to_speech_impl(
                     chunk,
                     voice_id=voice_id,
-                    thread_id=f"{thread_id}-{i}" if thread_id else f"chunk-{i}"
+                    thread_id=f"{thread_id}-{i}" if thread_id else f"chunk-{i}",
                 )
                 if success:
                     audio_files.append(file_path)
@@ -142,9 +151,13 @@ class OpenAITTS(TextToSpeech):
             final_path = self._concatenate_audio_files(audio_files)
             return True, final_path
         else:
-            return self._convert_text_to_speech_impl(text, voice_id=voice_id, thread_id=thread_id)
+            return self._convert_text_to_speech_impl(
+                text, voice_id=voice_id, thread_id=thread_id
+            )
 
-    def convert_text_to_speech_streaming(self, sentences: List[str], voice_id: str = None) -> Tuple[bool, str]:
+    def convert_text_to_speech_streaming(
+        self, sentences: List[str], voice_id: str = None
+    ) -> Tuple[bool, str]:
         """Convert multiple sentences to speech in parallel, then concatenate.
 
         This method generates audio for multiple sentences concurrently to reduce
@@ -163,7 +176,9 @@ class OpenAITTS(TextToSpeech):
         if len(sentences) == 1:
             return self.convert_text_to_speech(sentences[0], voice_id=voice_id)
 
-        Logger.print_debug(f"Generating TTS for {len(sentences)} sentences in parallel...")
+        Logger.print_debug(
+            f"Generating TTS for {len(sentences)} sentences in parallel..."
+        )
 
         # Generate audio for each sentence in parallel
         audio_files = []
@@ -176,7 +191,7 @@ class OpenAITTS(TextToSpeech):
                     self._convert_text_to_speech_impl,
                     sentence,
                     voice_id=voice_id,
-                    thread_id=f"parallel-{i}"
+                    thread_id=f"parallel-{i}",
                 )
                 futures.append(future)
 
@@ -195,41 +210,49 @@ class OpenAITTS(TextToSpeech):
 
     def _concatenate_audio_files(self, audio_files: List[str]) -> str:
         """Concatenate multiple audio files into one using ffmpeg.
-        
+
         Args:
             audio_files: List of audio file paths to concatenate
-            
+
         Returns:
             Path to concatenated audio file
         """
         concat_start = time.time()
-        
+
         timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
         temp_dir = get_tempdir()
         output_path = os.path.join(temp_dir, "tts", f"concatenated_{timestamp}.mp3")
 
         # Create file list for ffmpeg
         list_file = os.path.join(temp_dir, "tts", f"concat_list_{timestamp}.txt")
-        with open(list_file, 'w') as f:
+        with open(list_file, "w") as f:
             for audio_file in audio_files:
                 f.write(f"file '{audio_file}'\n")
 
         # Use ffmpeg to concatenate
         cmd = [
-            'ffmpeg', '-f', 'concat', '-safe', '0',
-            '-i', list_file,
-            '-c', 'copy',
-            output_path
+            "ffmpeg",
+            "-f",
+            "concat",
+            "-safe",
+            "0",
+            "-i",
+            list_file,
+            "-c",
+            "copy",
+            output_path,
         ]
 
         try:
             subprocess.run(cmd, check=True, capture_output=True)
             concat_elapsed = time.time() - concat_start
-            
+
             if is_timing_enabled():
                 Logger.print_perf(f"⏱️  [TTS] Concatenation took {concat_elapsed:.2f}s")
-            
-            Logger.print_debug(f"Concatenated {len(audio_files)} audio files into {output_path}")
+
+            Logger.print_debug(
+                f"Concatenated {len(audio_files)} audio files into {output_path}"
+            )
 
             # Clean up individual files and list file
             for audio_file in audio_files:

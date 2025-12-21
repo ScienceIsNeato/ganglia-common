@@ -6,6 +6,7 @@ from utils import get_config_path
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
+
 @pytest.fixture
 def query_dispatcher():
     return ChatGPTQueryDispatcher(config_file_path=get_config_path())

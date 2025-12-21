@@ -37,6 +37,7 @@ from datetime import datetime
 
 term = blessed.Terminal()
 
+
 class Logger:
     """Thread-safe logging system with colored output.
 
@@ -101,12 +102,12 @@ class Logger:
         import shutil
         import os
 
-        end_char = kwargs.get('end', '\n')
-        is_carriage_return = (end_char == '\r' or end_char == '')
+        end_char = kwargs.get("end", "\n")
+        is_carriage_return = end_char == "\r" or end_char == ""
 
         # Get terminal width: ENV VAR > auto-detect > default 80
         terminal_width = None
-        env_width = os.environ.get('GANGLIA_TERMINAL_WIDTH')
+        env_width = os.environ.get("GANGLIA_TERMINAL_WIDTH")
         if env_width:
             try:
                 terminal_width = int(env_width)
@@ -116,22 +117,28 @@ class Logger:
         if terminal_width is None:
             try:
                 terminal_width = shutil.get_terminal_size().columns
-            except:
+            except Exception:
                 terminal_width = 80
 
         if len(args) == 1 and isinstance(args[0], str):
             text = args[0]
             # Strip ANSI codes to measure actual text length
-            clean_text = re.sub(r'\033\[[0-9;]*[mK]', '', text)
-            clean_text = re.sub(r'\r', '', clean_text)
+            clean_text = re.sub(r"\033\[[0-9;]*[mK]", "", text)
+            clean_text = re.sub(r"\r", "", clean_text)
 
             if is_carriage_return:
                 # INTERIM UPDATE (while speaking) - truncate if too long to prevent flooding
                 if len(clean_text) > terminal_width - 5:
                     # Show "..." + last N characters that fit
-                    visible_width = terminal_width - 8  # Leave room for "..." and color codes
+                    visible_width = (
+                        terminal_width - 8
+                    )  # Leave room for "..." and color codes
                     truncated = "..." + clean_text[-visible_width:]
-                    print(f"{term.deepskyblue}\r\033[K{truncated}{term.white}", end=end_char, flush=True)
+                    print(
+                        f"{term.deepskyblue}\r\033[K{truncated}{term.white}",
+                        end=end_char,
+                        flush=True,
+                    )
                     return
             else:
                 # FINAL OUTPUT (sentence complete) - wrap if too long
@@ -149,12 +156,12 @@ class Logger:
                             current_length += word_len
                         else:
                             if current_line:
-                                lines.append(' '.join(current_line))
+                                lines.append(" ".join(current_line))
                             current_line = [word]
                             current_length = len(word)
 
                     if current_line:
-                        lines.append(' '.join(current_line))
+                        lines.append(" ".join(current_line))
 
                     # Print wrapped lines
                     for line in lines:

@@ -5,11 +5,12 @@ import time
 from typing import Callable, Any, Optional
 from ganglia_common.logger import Logger
 
+
 def exponential_backoff(
     func: Callable[..., Any],
     max_retries: int = 5,
     initial_delay: float = 1.0,
-    thread_id: Optional[str] = None
+    thread_id: Optional[str] = None,
 ) -> Any:
     """Execute a function with exponential backoff retry logic and improved logging.
 
@@ -42,7 +43,7 @@ def exponential_backoff(
             # Add some jitter to prevent thundering herd
             delay = delay * (0.5 + random.random())
 
-            func_name = getattr(func, '__name__', '<unknown function>')
+            func_name = getattr(func, "__name__", "<unknown function>")
             Logger.print_warning(
                 f"{thread_prefix}Attempt {attempt}/{max_retries} "
                 f"calling {func_name} failed: {error}"
