@@ -2,7 +2,7 @@ import sys
 from pathlib import Path
 import pytest
 from ganglia_common.query_dispatch import ChatGPTQueryDispatcher
-from utils import get_config_path
+from ganglia_common.utils import get_config_path
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 

@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import Mock, patch
-from utils import exponential_backoff
+from ganglia_common.utils import exponential_backoff
 from ganglia_common.logger import Logger
 
 
