@@ -17,7 +17,7 @@ class Voice:
         created_at: Timestamp when voice was created/registered
         duration_seconds: Duration of reference audio in seconds
         sample_text: Text content of the reference audio sample
-        clone_id: Local clone identifier, when this voice was registered from a sample
+        clone_id: Local clone identifier when this voice was registered from a sample
         trainer: Voice clone trainer/backend that produced this voice metadata
         trainer_version: Trainer/backend version or mode
         storage_scope: Storage lifetime/scope for local clone artifacts

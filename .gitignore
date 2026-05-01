@@ -11,3 +11,6 @@ dist/
 venv/
 
 
+
+# slop-mop working directory (machine-local state)
+.slopmop/
