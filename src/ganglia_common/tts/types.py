@@ -17,6 +17,12 @@ class Voice:
         created_at: Timestamp when voice was created/registered
         duration_seconds: Duration of reference audio in seconds
         sample_text: Text content of the reference audio sample
+        clone_id: Local clone identifier, when this voice was registered from a sample
+        trainer: Voice clone trainer/backend that produced this voice metadata
+        trainer_version: Trainer/backend version or mode
+        storage_scope: Storage lifetime/scope for local clone artifacts
+        source_transcript: Transcript associated with the reference audio sample
+        custom_metadata: Backend-specific metadata for clone registration
     """
 
     engine: Literal["google", "chatterbox"]
@@ -28,3 +34,9 @@ class Voice:
     created_at: float = field(default_factory=time.time)
     duration_seconds: float = 0.0
     sample_text: str | None = None
+    clone_id: str | None = None
+    trainer: str | None = None
+    trainer_version: str | None = None
+    storage_scope: str | None = None
+    source_transcript: str | None = None
+    custom_metadata: dict[str, str] = field(default_factory=dict)
