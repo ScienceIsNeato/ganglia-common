@@ -63,20 +63,36 @@ class ChatGPTQueryDispatcher:
         for line in context_lines:
             self.messages.append({"role": "system", "content": line})
 
-    def send_query(self, current_input):
+    def send_query(self, current_input, extra_system_context=None):
         """Send a query to the ChatGPT API and get the response.
 
         Args:
             current_input (str): The user's input to send to ChatGPT
+            extra_system_context (str, optional): Additional system context injected
+                for this call only (e.g. active quest beat). Not stored in history.
 
         Returns:
             str or tuple: If audio_output=False, returns text response.
                          If audio_output=True, returns (text, audio_file_path)
         """
+        # Build the message list for this specific call, optionally injecting
+        # per-turn quest context without polluting the persistent history.
+        if extra_system_context:
+            messages_for_call = list(self.messages) + [
+                {"role": "system", "content": extra_system_context},
+                {"role": "user", "content": current_input},
+            ]
+        else:
+            messages_for_call = None  # will use self.messages after appending below
+
         self.messages.append({"role": "user", "content": current_input})
         start_time = time()
 
         self.rotate_session_history()  # Ensure history stays under the max length
+
+        # Use the per-call message list when extra context was provided
+        if messages_for_call is None:
+            messages_for_call = self.messages
 
         if is_timing_enabled():
             Logger.print_perf(f"⏱️  [LLM] Sending query to OpenAI API ({self.model})...")
@@ -89,7 +105,7 @@ class ChatGPTQueryDispatcher:
                 model=self.model,
                 modalities=["text", "audio"],
                 audio={"voice": self.audio_voice, "format": "wav"},
-                messages=self.messages,
+                messages=messages_for_call,
             )
             reply = chat.choices[0].message.content or ""
             audio_data = chat.choices[0].message.audio
@@ -148,7 +164,7 @@ class ChatGPTQueryDispatcher:
         else:
             # Standard text-only response
             chat = self.client.chat.completions.create(
-                model=self.model, messages=self.messages
+                model=self.model, messages=messages_for_call
             )
             reply = chat.choices[0].message.content
             self.messages.append({"role": "assistant", "content": reply})
@@ -173,7 +189,7 @@ class ChatGPTQueryDispatcher:
 
             return reply
 
-    def send_query_streaming(self, current_input):
+    def send_query_streaming(self, current_input, extra_system_context=None):
         """Send a query to ChatGPT API and stream the response sentence by sentence.
 
         This enables faster perceived response time by allowing TTS generation to start
@@ -181,19 +197,32 @@ class ChatGPTQueryDispatcher:
 
         Args:
             current_input (str): The user's input to send to ChatGPT
+            extra_system_context (str, optional): Additional system context injected
+                for this call only. Not stored in history.
 
         Yields:
             str: Individual sentences from the AI's response as they're completed
         """
+        if extra_system_context:
+            messages_for_call = list(self.messages) + [
+                {"role": "system", "content": extra_system_context},
+                {"role": "user", "content": current_input},
+            ]
+        else:
+            messages_for_call = None
+
         self.messages.append({"role": "user", "content": current_input})
         start_time = time()
 
         self.rotate_session_history()
 
+        if messages_for_call is None:
+            messages_for_call = self.messages
+
         Logger.print_debug("Sending streaming query to AI server...")
 
         stream = self.client.chat.completions.create(
-            model="gpt-4o-mini", messages=self.messages, stream=True
+            model="gpt-4o-mini", messages=messages_for_call, stream=True
         )
 
         full_response = ""
