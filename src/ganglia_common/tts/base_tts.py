@@ -5,12 +5,49 @@ import os
 import subprocess
 import sys
 import select
+import threading
 from abc import ABC, abstractmethod
 from urllib.parse import urlparse
 
 from ganglia_common.logger import Logger
 from ganglia_common.utils.performance_profiler import is_timing_enabled
 from ganglia_common.tts.types import Voice
+
+
+# Module-level registry of currently-running ``ffplay`` subprocesses, so the
+# top-level shutdown handler can kill them on Ctrl+C without each TTS instance
+# having to be passed around. ``play_speech_response`` adds itself on
+# ``Popen``, removes itself once playback returns, and ``stop_active_playback``
+# (called from the shutdown coordinator) kills anything still in the set.
+_active_playback_processes: "set[subprocess.Popen]" = set()
+_playback_lock = threading.Lock()
+
+
+def stop_active_playback() -> None:
+    """Terminate every in-flight playback subprocess.
+
+    Called from the shutdown coordinator. Best-effort: any subprocess whose
+    ``terminate``/``kill`` raises (already exited, OS error) is skipped, since
+    the goal is just to make sure no stray ``ffplay`` outlives the parent.
+    """
+    with _playback_lock:
+        procs = list(_active_playback_processes)
+        _active_playback_processes.clear()
+    for proc in procs:
+        try:
+            if proc.poll() is None:
+                proc.terminate()
+        except Exception:
+            pass
+    # Give processes a brief moment to exit on SIGTERM before escalating.
+    for proc in procs:
+        try:
+            proc.wait(timeout=0.3)
+        except Exception:
+            try:
+                proc.kill()
+            except Exception:
+                pass
 
 
 class TextToSpeech(ABC):
@@ -110,8 +147,16 @@ class TextToSpeech(ABC):
                 stdin=subprocess.DEVNULL,
             )
 
-            # Wait for playback to finish (no enter key monitoring for streaming)
-            playback_process.wait()
+            # Track this process so the shutdown coordinator can kill it on
+            # Ctrl+C — otherwise a long ``ffplay`` keeps ``wait()`` blocked.
+            with _playback_lock:
+                _active_playback_processes.add(playback_process)
+            try:
+                # Wait for playback to finish (no enter key monitoring for streaming)
+                playback_process.wait()
+            finally:
+                with _playback_lock:
+                    _active_playback_processes.discard(playback_process)
 
     def monitor_enter_keypress(self, playback_process):
         """Monitor for Enter key press to stop playback.
