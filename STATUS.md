@@ -1,4 +1,4 @@
 <!-- willville
-status: maintenance
+status: shipping
 summary: Shared utilities for GANGLIA ecosystem
 -->
