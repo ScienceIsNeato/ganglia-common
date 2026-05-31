@@ -37,7 +37,15 @@ class GoogleTTS(TextToSpeech):
     # Class-level lock for gRPC client creation
     _client_lock = threading.Lock()
 
-    def __init__(self, apply_effects=False):
+    # Allowed ranges for the user-tunable audio effects (mirrors Google's API).
+    PITCH_RANGE = (-20.0, 20.0)
+    SPEAKING_RATE_RANGE = (0.25, 4.0)
+
+    # Defaults that give GANGLIA its deep, menacing voice.
+    DEFAULT_PITCH = -20.0
+    DEFAULT_SPEAKING_RATE = 0.9
+
+    def __init__(self, apply_effects=True):
         """Initialize the Google TTS client.
 
         Args:
@@ -45,12 +53,53 @@ class GoogleTTS(TextToSpeech):
         """
         super().__init__()
         self.apply_effects = apply_effects
+        self.pitch = self.DEFAULT_PITCH
+        self.speaking_rate = self.DEFAULT_SPEAKING_RATE
         Logger.print_info(
             f"Initializing GoogleTTS{' with audio effects' if apply_effects else ''}..."
         )
         # Create a single shared client instance with thread safety
         with self._client_lock:
             self._client = tts.TextToSpeechClient()
+
+    @staticmethod
+    def _clamp(value: float, low: float, high: float) -> float:
+        return max(low, min(high, value))
+
+    def set_effects(
+        self, pitch: Optional[float] = None, speaking_rate: Optional[float] = None
+    ) -> None:
+        """Update the tunable audio effects and enable effect processing.
+
+        Values are clamped to the ranges Google's API accepts. Any value left as
+        None keeps its current setting.
+        """
+        if pitch is not None:
+            self.pitch = self._clamp(float(pitch), *self.PITCH_RANGE)
+        if speaking_rate is not None:
+            self.speaking_rate = self._clamp(
+                float(speaking_rate), *self.SPEAKING_RATE_RANGE
+            )
+        # Customizing effects implicitly turns them on.
+        self.apply_effects = True
+        Logger.print_info(
+            f"GoogleTTS effects updated: pitch={self.pitch}, "
+            f"speaking_rate={self.speaking_rate}"
+        )
+
+    def get_effects(self) -> dict:
+        """Return current effect values plus their allowed ranges and defaults."""
+        return {
+            "apply_effects": self.apply_effects,
+            "pitch": self.pitch,
+            "speaking_rate": self.speaking_rate,
+            "pitch_range": list(self.PITCH_RANGE),
+            "speaking_rate_range": list(self.SPEAKING_RATE_RANGE),
+            "defaults": {
+                "pitch": self.DEFAULT_PITCH,
+                "speaking_rate": self.DEFAULT_SPEAKING_RATE,
+            },
+        }
 
     def _convert_text_to_speech_impl(
         self, text: str, voice: Voice, thread_id: str = None
@@ -67,7 +116,7 @@ class GoogleTTS(TextToSpeech):
                   to the generated audio file if successful
         """
         # Use provided voice ID or default
-        voice_id = voice.id if voice and voice.id else "en-US-Casual-K"
+        voice_id = voice.id if voice and voice.id != "en-US-Casual-K" else "en-US-Wavenet-D"
 
         # Set up the text input and voice settings
         synthesis_input = tts.SynthesisInput(text=text)
@@ -81,8 +130,8 @@ class GoogleTTS(TextToSpeech):
             # Use Google's native audio parameters for deeper, more dramatic voice
             audio_config = tts.AudioConfig(
                 audio_encoding=tts.AudioEncoding.MP3,
-                pitch=-20.0,  # Deep pitch for demonic voice (range: -20.0 to 20.0)
-                speaking_rate=1,  # Slower for more menacing effect (range: 0.25 to 4.0)
+                pitch=self.pitch,  # Deep pitch for demonic voice (range: -20.0 to 20.0)
+                speaking_rate=self.speaking_rate,  # Slower = more menacing (range: 0.25 to 4.0)
             )
         else:
             audio_config = tts.AudioConfig(audio_encoding=tts.AudioEncoding.MP3)
@@ -144,7 +193,7 @@ class GoogleTTS(TextToSpeech):
 
         # Create default voice if none provided (backward compatibility)
         if voice is None:
-            voice = Voice(engine="google", name="Default", id="en-US-Casual-K")
+            voice = Voice(engine="google", name="Default", id="en-US-Wavenet-D")
 
         try:
             return exponential_backoff(
@@ -158,7 +207,7 @@ class GoogleTTS(TextToSpeech):
             return False, None
 
     def convert_text_to_speech_streaming(
-        self, sentences: List[str], voice_id="en-US-Casual-K"
+        self, sentences: List[str], voice_id="en-US-Wavenet-D"
     ) -> Tuple[bool, str]:
         """Convert multiple sentences to speech in parallel and concatenate.
 
