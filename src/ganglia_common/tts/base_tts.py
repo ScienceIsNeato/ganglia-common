@@ -36,7 +36,6 @@ class TextToSpeech(ABC):
             tuple: (success: bool, file_path: str) where file_path is the path
                   to the generated audio file if successful, None otherwise
         """
-        pass
 
     def is_local_filepath(self, file_path: str) -> bool:
         """Check if a file path is a local file path.
