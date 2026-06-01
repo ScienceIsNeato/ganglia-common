@@ -2,7 +2,8 @@
 
 import random
 import time
-from typing import Callable, Any, Optional
+from typing import Any, Callable, Optional
+
 from ganglia_common.logger import Logger
 
 
@@ -28,7 +29,7 @@ def exponential_backoff(
     """
     thread_prefix = f"{thread_id} " if thread_id else ""
     attempt = 1
-    last_exception = None
+    last_exception: Exception | None = None
 
     while attempt <= max_retries:
         try:
@@ -52,4 +53,6 @@ def exponential_backoff(
             time.sleep(delay)
             attempt += 1
 
+    if last_exception is None:
+        raise RuntimeError("Retry loop exited without an exception")
     raise last_exception

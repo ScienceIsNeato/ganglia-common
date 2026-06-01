@@ -5,6 +5,10 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 
+def _empty_metadata() -> dict[str, str]:
+    return {}
+
+
 @dataclass
 class Voice:
     """Represents a voice configuration for TTS engines.
@@ -39,4 +43,4 @@ class Voice:
     trainer_version: str | None = None
     storage_scope: str | None = None
     source_transcript: str | None = None
-    custom_metadata: dict[str, str] = field(default_factory=dict)
+    custom_metadata: dict[str, str] = field(default_factory=_empty_metadata)

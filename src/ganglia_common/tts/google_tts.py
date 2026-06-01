@@ -10,21 +10,23 @@ import re
 import subprocess
 import threading
 import time
-from datetime import datetime
+import typing
 from concurrent.futures import ThreadPoolExecutor
-from typing import List, Tuple, Optional
+from datetime import datetime
+from typing import List, Optional, Tuple
+
+from google.api_core import exceptions as google_exceptions
 
 # Third-party imports
 from google.cloud import texttospeech_v1 as tts
-from google.api_core import exceptions as google_exceptions
 
 # Local imports
 from ganglia_common.logger import Logger
-from ganglia_common.utils.file_utils import get_tempdir
-from ganglia_common.utils.retry_utils import exponential_backoff
-from ganglia_common.utils.performance_profiler import is_timing_enabled
 from ganglia_common.tts.base_tts import TextToSpeech
 from ganglia_common.tts.types import Voice
+from ganglia_common.utils.file_utils import get_tempdir
+from ganglia_common.utils.performance_profiler import is_timing_enabled
+from ganglia_common.utils.retry_utils import exponential_backoff
 
 
 class GoogleTTS(TextToSpeech):
@@ -37,7 +39,7 @@ class GoogleTTS(TextToSpeech):
     # Class-level lock for gRPC client creation
     _client_lock = threading.Lock()
 
-    def __init__(self, apply_effects=False):
+    def __init__(self, apply_effects: typing.Any = False) -> None:
         """Initialize the Google TTS client.
 
         Args:
@@ -50,11 +52,11 @@ class GoogleTTS(TextToSpeech):
         )
         # Create a single shared client instance with thread safety
         with self._client_lock:
-            self._client = tts.TextToSpeechClient()
+            self._client: typing.Any = tts.TextToSpeechClient()
 
     def _convert_text_to_speech_impl(
-        self, text: str, voice: Voice, thread_id: str = None
-    ):
+        self, text: str, voice: Voice, thread_id: Optional[str] = None
+    ) -> typing.Any:
         """Internal implementation of text-to-speech conversion.
 
         Args:
@@ -109,7 +111,7 @@ class GoogleTTS(TextToSpeech):
         # Sanitize the text for use in filename
         # Take first 3 words and replace problematic characters
         words = text.split()[:3]
-        sanitized_words = []
+        sanitized_words: list[str] = []
         for word in words:
             # Replace slashes, parentheses, and other problematic characters
             sanitized = re.sub(r"[^\w\s-]", "_", word)
@@ -127,8 +129,11 @@ class GoogleTTS(TextToSpeech):
         return True, file_path
 
     def convert_text_to_speech(
-        self, text: str, voice: Optional[Voice] = None, thread_id: str = None
-    ):
+        self,
+        text: str,
+        voice: Optional[Voice] = None,
+        thread_id: Optional[str] = None,
+    ) -> tuple[bool, str | None]:
         """Convert text to speech using the specified voice with retry logic.
 
         Args:
@@ -158,8 +163,8 @@ class GoogleTTS(TextToSpeech):
             return False, None
 
     def convert_text_to_speech_streaming(
-        self, sentences: List[str], voice_id="en-US-Casual-K"
-    ) -> Tuple[bool, str]:
+        self, sentences: List[str], voice_id: typing.Any = "en-US-Casual-K"
+    ) -> Tuple[bool, Optional[str]]:
         """Convert multiple sentences to speech in parallel and concatenate.
 
         NOTE: This legacy method still takes voice_id directly to avoid breaking
@@ -201,7 +206,9 @@ class GoogleTTS(TextToSpeech):
             return False, None
 
         # Extract file paths
-        audio_files = [file_path for success, file_path in results if success]
+        audio_files = [
+            file_path for success, file_path in results if success and file_path
+        ]
 
         if not audio_files:
             return False, None

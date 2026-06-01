@@ -2,14 +2,16 @@
 
 import os
 import tempfile
+import typing
 from datetime import datetime
+
 from ganglia_common.logger import Logger
 
 # Global variable to store the current TTV directory
 _current_ttv_dir = None
 
 
-def get_tempdir():
+def get_tempdir() -> typing.Any:
     """
     Get the temporary directory in a platform-agnostic way.
     Creates and returns /tmp/GANGLIA for POSIX systems or %TEMP%/GANGLIA for Windows.
@@ -45,7 +47,7 @@ def get_timestamped_ttv_dir() -> str:
     return _current_ttv_dir
 
 
-def get_config_path():
+def get_config_path() -> typing.Any:
     """Get the path to the config directory relative to the project root."""
     return os.path.join(
         os.path.dirname(os.path.dirname(__file__)), "config", "ganglia_config.json"
