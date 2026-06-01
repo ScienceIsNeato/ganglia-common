@@ -1,4 +1,13 @@
+from types import SimpleNamespace
+
+import pytest
+
 from ganglia_common.query_dispatch import ChatGPTQueryDispatcher
+
+
+@pytest.fixture(autouse=True)
+def openai_api_key(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
 
 def test_load_git_repo_into_history():
@@ -19,6 +28,77 @@ def test_query_dispatcher_init():
     pre_prompt = "You are a helpful assistant."
     dispatcher = ChatGPTQueryDispatcher(pre_prompt=pre_prompt)
     assert dispatcher.messages == [{"role": "system", "content": pre_prompt}]
+
+
+def test_dispatcher_context_history_and_filtering():
+    dispatcher = ChatGPTQueryDispatcher()
+    dispatcher.add_system_context(["one", "two"])
+    assert dispatcher.count_tokens() == 2
+
+    dispatcher.messages = [{"role": "user", "content": "word " * 4100}]
+    dispatcher.rotate_session_history()
+    assert dispatcher.messages == []
+
+    dispatcher.send_query = lambda _: "rewritten story"
+    assert dispatcher.filter_content_for_dalle("story") == (True, "rewritten story")
+    assert "Story to rewrite:\nstory" in dispatcher._get_dalle_filter_prompt("story")
+
+
+def test_dispatcher_filtering_reports_final_failure():
+    dispatcher = ChatGPTQueryDispatcher()
+    dispatcher.send_query = lambda _: (_ for _ in ()).throw(ValueError("blocked"))
+    assert dispatcher.filter_content_for_dalle("story", max_attempts=2) == (False, None)
+
+
+def test_dispatcher_streams_complete_sentences(tmp_path, monkeypatch):
+    monkeypatch.setenv("GANGLIA_TEMP_DIR", str(tmp_path))
+    dispatcher = ChatGPTQueryDispatcher()
+    dispatcher.client.chat.completions.create = lambda **_: iter(
+        [
+            SimpleNamespace(
+                choices=[SimpleNamespace(delta=SimpleNamespace(content="Hello. "))]
+            ),
+            SimpleNamespace(
+                choices=[SimpleNamespace(delta=SimpleNamespace(content="Goodbye"))]
+            ),
+        ]
+    )
+
+    assert list(dispatcher.send_query_streaming("start")) == ["Hello.", "Goodbye"]
+    assert dispatcher.messages[-1] == {
+        "role": "assistant",
+        "content": "Hello. Goodbye",
+    }
+
+
+def test_dispatcher_audio_falls_back_when_audio_is_missing():
+    dispatcher = ChatGPTQueryDispatcher(audio_output=True)
+    dispatcher.client.chat.completions.create = lambda **_: SimpleNamespace(
+        choices=[
+            SimpleNamespace(message=SimpleNamespace(content="fallback", audio=None))
+        ]
+    )
+    assert dispatcher.send_query("start") == "fallback"
+
+
+def test_dispatcher_audio_writes_wav(tmp_path, monkeypatch):
+    monkeypatch.setenv("GANGLIA_TEMP_DIR", str(tmp_path))
+    dispatcher = ChatGPTQueryDispatcher(audio_output=True)
+    dispatcher.client.chat.completions.create = lambda **_: SimpleNamespace(
+        choices=[
+            SimpleNamespace(
+                message=SimpleNamespace(
+                    content="spoken",
+                    audio=SimpleNamespace(data="d2F2", transcript="spoken"),
+                )
+            )
+        ]
+    )
+
+    reply, audio_file = dispatcher.send_query("start")
+
+    assert reply == "spoken"
+    assert open(audio_file, "rb").read() == b"wav"
 
 
 # Test removed - send_merged_query method does not exist in the codebase

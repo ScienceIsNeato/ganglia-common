@@ -32,8 +32,10 @@ Color Scheme:
 """
 
 import threading
-import blessed
+import typing
 from datetime import datetime
+
+import blessed
 
 term = blessed.Terminal()
 
@@ -64,43 +66,43 @@ class Logger:
     _debug_enabled = False
 
     @staticmethod
-    def enable_timestamps():
+    def enable_timestamps() -> typing.Any:
         """Enable timestamp prefixes for all log messages."""
         Logger._timestamps_enabled = True
 
     @staticmethod
-    def disable_timestamps():
+    def disable_timestamps() -> typing.Any:
         """Disable timestamp prefixes for all log messages."""
         Logger._timestamps_enabled = False
 
     @staticmethod
-    def enable_debug():
+    def enable_debug() -> typing.Any:
         """Enable debug logging."""
         Logger._debug_enabled = True
 
     @staticmethod
-    def disable_debug():
+    def disable_debug() -> typing.Any:
         """Disable debug logging."""
         Logger._debug_enabled = False
 
     @staticmethod
-    def _get_timestamp():
+    def _get_timestamp() -> typing.Any:
         """Get formatted timestamp if timestamps are enabled."""
         if Logger._timestamps_enabled:
             return f"[{datetime.now().strftime('%H:%M:%S.%f')[:-3]}] "
         return ""
 
     @staticmethod
-    def print_user_input(*args, **kwargs):
+    def print_user_input(*args: typing.Any, **kwargs: typing.Any) -> typing.Any:
         """Print user input messages in deep sky blue.
 
         Args:
             *args: Variable length argument list to be printed.
             **kwargs: Arbitrary keyword arguments passed to print function.
         """
+        import os
         import re
         import shutil
-        import os
 
         end_char = kwargs.get("end", "\n")
         is_carriage_return = end_char == "\r" or end_char == ""
@@ -145,8 +147,8 @@ class Logger:
                 if len(clean_text) > terminal_width - 2:
                     # Word wrapping for final output
                     words = clean_text.split()
-                    lines = []
-                    current_line = []
+                    lines: list[str] = []
+                    current_line: list[str] = []
                     current_length = 0
 
                     for word in words:
@@ -174,7 +176,7 @@ class Logger:
         print(f"{term.white}", end="", flush=True)
 
     @staticmethod
-    def print_demon_output(*args, **kwargs):
+    def print_demon_output(*args: typing.Any, **kwargs: typing.Any) -> typing.Any:
         """Print demon output messages in firebrick red.
 
         Args:
@@ -186,7 +188,7 @@ class Logger:
         print(f"{term.white}", end="", flush=True)
 
     @staticmethod
-    def print_halloween_narrator(*args, **kwargs):
+    def print_halloween_narrator(*args: typing.Any, **kwargs: typing.Any) -> typing.Any:
         """Print halloween narrator messages in pumpkin orange.
 
         Args:
@@ -198,7 +200,7 @@ class Logger:
         print(f"{term.white}", end="", flush=True)
 
     @staticmethod
-    def print_error(*args, **kwargs):
+    def print_error(*args: typing.Any, **kwargs: typing.Any) -> typing.Any:
         """Print error messages in yellow.
 
         Used for logging errors and critical issues that need immediate attention.
@@ -212,7 +214,7 @@ class Logger:
         print(f"{term.white}", end="", flush=True)
 
     @staticmethod
-    def print_warning(*args, **kwargs):
+    def print_warning(*args: typing.Any, **kwargs: typing.Any) -> typing.Any:
         """Print warning messages in yellow.
 
         Used for logging potential issues or concerning conditions that don't prevent execution.
@@ -226,7 +228,7 @@ class Logger:
         print(f"{term.white}", end="", flush=True)
 
     @staticmethod
-    def print_info(*args, **kwargs):
+    def print_info(*args: typing.Any, **kwargs: typing.Any) -> typing.Any:
         """Print informational messages in salmon.
 
         Used for logging general information and progress updates.
@@ -240,7 +242,7 @@ class Logger:
         print(f"{term.white}", end="", flush=True)
 
     @staticmethod
-    def print_debug(*args, **kwargs):
+    def print_debug(*args: typing.Any, **kwargs: typing.Any) -> typing.Any:
         """Print debug messages in snow gray.
 
         Used for logging detailed debug information and technical details.
@@ -257,7 +259,7 @@ class Logger:
         print(f"{term.white}", end="", flush=True)
 
     @staticmethod
-    def print_perf(*args, **kwargs):
+    def print_perf(*args: typing.Any, **kwargs: typing.Any) -> typing.Any:
         """Print performance timing messages in bright cyan.
 
         Used for logging performance metrics and timing information.
@@ -271,7 +273,7 @@ class Logger:
         print(f"{term.white}", end="", flush=True)
 
     @staticmethod
-    def print_legend():
+    def print_legend() -> typing.Any:
         """Print a color-coded legend banner showing available message types.
 
         Displays a formatted banner showing all available colors and their

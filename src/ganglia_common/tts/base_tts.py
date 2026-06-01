@@ -1,16 +1,17 @@
 """Abstract Base Class for Text-to-Speech implementations."""
 
-import re
 import os
+import re
+import select
 import subprocess
 import sys
-import select
+import typing
 from abc import ABC, abstractmethod
 from urllib.parse import urlparse
 
 from ganglia_common.logger import Logger
-from ganglia_common.utils.performance_profiler import is_timing_enabled
 from ganglia_common.tts.types import Voice
+from ganglia_common.utils.performance_profiler import is_timing_enabled
 
 
 class TextToSpeech(ABC):
@@ -21,7 +22,9 @@ class TextToSpeech(ABC):
     """
 
     @abstractmethod
-    def convert_text_to_speech(self, text: str, voice: Voice, thread_id: str = None):
+    def convert_text_to_speech(
+        self, text: str, voice: Voice | None = None, thread_id: str | None = None
+    ) -> tuple[bool, str | None]:
         """Convert text to speech using the specified voice.
 
         Args:
@@ -33,7 +36,6 @@ class TextToSpeech(ABC):
             tuple: (success: bool, file_path: str) where file_path is the path
                   to the generated audio file if successful, None otherwise
         """
-        pass
 
     def is_local_filepath(self, file_path: str) -> bool:
         """Check if a file path is a local file path.
@@ -50,8 +52,8 @@ class TextToSpeech(ABC):
         except ValueError:
             return False
 
-    @classmethod
-    def split_text(cls, text: str, max_length: int = 250):
+    @staticmethod
+    def split_text(text: str, max_length: int = 250) -> list[str]:
         """Split text into chunks of maximum length while preserving sentences.
 
         Args:
@@ -62,7 +64,7 @@ class TextToSpeech(ABC):
             list: List of text chunks
         """
         sentences = [match.group() for match in re.finditer(r"[^.!?]*[.!?]", text)]
-        chunks = []
+        chunks: list[str] = []
 
         for sentence in sentences:
             while len(sentence) > max_length:
@@ -73,7 +75,12 @@ class TextToSpeech(ABC):
 
         return chunks
 
-    def play_speech_response(self, file_path, raw_response, suppress_text_output=False):
+    def play_speech_response(
+        self,
+        file_path: typing.Any,
+        raw_response: typing.Any,
+        suppress_text_output: typing.Any = False,
+    ) -> typing.Any:
         """Play speech response and handle user interaction.
 
         Args:
@@ -113,7 +120,7 @@ class TextToSpeech(ABC):
             # Wait for playback to finish (no enter key monitoring for streaming)
             playback_process.wait()
 
-    def monitor_enter_keypress(self, playback_process):
+    def monitor_enter_keypress(self, playback_process: typing.Any) -> typing.Any:
         """Monitor for Enter key press to stop playback.
 
         Args:
@@ -130,7 +137,7 @@ class TextToSpeech(ABC):
                     playback_process.terminate()
                     break
 
-    def concatenate_audio_from_text(self, text_file_path):
+    def concatenate_audio_from_text(self, text_file_path: typing.Any) -> typing.Any:
         """Concatenate multiple audio files listed in a text file.
 
         Args:
@@ -140,7 +147,7 @@ class TextToSpeech(ABC):
             str: Path to the concatenated audio file
         """
         output_file = "combined_audio.mp3"
-        concat_command = [
+        concat_command: list[str] = [
             "ffmpeg",
             "-y",
             "-f",
@@ -160,7 +167,7 @@ class TextToSpeech(ABC):
         )
         return output_file
 
-    def prepare_playback(self, file_path):
+    def prepare_playback(self, file_path: typing.Any) -> typing.Any:
         """Prepare audio playback command and get duration.
 
         Args:
@@ -170,7 +177,7 @@ class TextToSpeech(ABC):
             tuple: (play_command: list, audio_duration: float)
         """
         if file_path.endswith(".mp4"):
-            play_command = ["ffplay", "-nodisp", "-autoexit", file_path]
+            play_command: list[str] = ["ffplay", "-nodisp", "-autoexit", file_path]
         else:
             play_command = [
                 "ffplay",
@@ -183,7 +190,7 @@ class TextToSpeech(ABC):
         audio_duration = self.get_audio_duration(file_path)
         return play_command, audio_duration
 
-    def get_audio_duration(self, file_path):
+    def get_audio_duration(self, file_path: typing.Any) -> typing.Any:
         """Get the duration of an audio file.
 
         Args:
@@ -192,7 +199,7 @@ class TextToSpeech(ABC):
         Returns:
             float: Duration of the audio in seconds
         """
-        duration_command = [
+        duration_command: list[str] = [
             "ffprobe",
             "-v",
             "error",

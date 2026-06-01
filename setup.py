@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 setup(
     name="ganglia-common",
@@ -12,7 +12,6 @@ setup(
         "python-dotenv>=1.0.0",
         "google-cloud-texttospeech>=2.14.1",
         "google-cloud-storage>=2.10.0",
-        "gTTS>=2.5.0",
         "requests>=2.31.0",
         "blessed>=1.20.0",
         "psutil>=5.9.5",
