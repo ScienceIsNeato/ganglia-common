@@ -131,9 +131,17 @@ class OpenAITTS(TextToSpeech):
         Returns:
             Tuple of (success, file_path)
         """
-        # Check if text is too long (OpenAI has a 4096 character limit)
-        MAX_LENGTH = 4000  # Leave some buffer
         voice_id = voice.id if voice else None
+        return self._convert_with_chunking(text, voice_id=voice_id, thread_id=thread_id)
+
+    def _convert_with_chunking(
+        self,
+        text: str,
+        voice_id: Optional[str] = None,
+        thread_id: Optional[str] = None,
+    ) -> Tuple[bool, Optional[str]]:
+        """Convert text while respecting OpenAI's per-request text limit."""
+        MAX_LENGTH = 4000  # Leave some buffer
 
         if len(text) > MAX_LENGTH:
             Logger.print_warning(
@@ -142,6 +150,9 @@ class OpenAITTS(TextToSpeech):
             # For long text, use the chunking/concatenation approach
             chunks = self.split_text(text, max_length=MAX_LENGTH)
             Logger.print_debug(f"Split into {len(chunks)} chunks")
+            if not chunks:
+                Logger.print_error("Failed to split oversized text into chunks")
+                return False, None
 
             audio_files: list[str] = []
             for i, chunk in enumerate(chunks):
@@ -158,7 +169,7 @@ class OpenAITTS(TextToSpeech):
 
             # Concatenate audio files
             final_path = self._concatenate_audio_files(audio_files)
-            return True, final_path
+            return final_path is not None, final_path
         else:
             return self._convert_text_to_speech_impl(
                 text, voice_id=voice_id, thread_id=thread_id
@@ -183,7 +194,7 @@ class OpenAITTS(TextToSpeech):
             return False, None
 
         if len(sentences) == 1:
-            return self._convert_text_to_speech_impl(sentences[0], voice_id=voice_id)
+            return self._convert_with_chunking(sentences[0], voice_id=voice_id)
 
         Logger.print_debug(
             f"Generating TTS for {len(sentences)} sentences in parallel..."
@@ -215,7 +226,7 @@ class OpenAITTS(TextToSpeech):
 
         # Concatenate all audio files
         final_path = self._concatenate_audio_files(audio_files)
-        return True, final_path
+        return final_path is not None, final_path
 
     def _concatenate_audio_files(self, audio_files: List[str]) -> Optional[str]:
         """Concatenate multiple audio files into one using ffmpeg.
