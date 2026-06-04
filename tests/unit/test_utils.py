@@ -51,9 +51,9 @@ def test_exponential_backoff_with_thread_id():
     assert mock_func.call_count == 2
 
     # Verify logging includes thread ID (exponential_backoff uses print_warning and print_info)
-    assert any("test-thread" in str(call) for call in mock_warning.call_args_list), (
-        f"thread-id not found in warning calls: {mock_warning.call_args_list}"
-    )
-    assert any("test-thread" in str(call) for call in mock_info.call_args_list), (
-        f"thread-id not found in info calls: {mock_info.call_args_list}"
-    )
+    assert any(
+        "test-thread" in str(call) for call in mock_warning.call_args_list
+    ), f"thread-id not found in warning calls: {mock_warning.call_args_list}"
+    assert any(
+        "test-thread" in str(call) for call in mock_info.call_args_list
+    ), f"thread-id not found in info calls: {mock_info.call_args_list}"

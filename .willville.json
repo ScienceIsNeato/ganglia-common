@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "agent": {
+    "status": "Tidied up the shared library that the coffin and studio both lean on: taught it that GANGLIA can now speak through the new voice service, and dropped an old text-to-speech helper we no longer use.",
+    "direction": "Push this up so the main coffin work can build on it, then keep cleaning as the voice features settle.",
+    "last_update": "2026-06-04T00:00:00Z"
+  }
+}

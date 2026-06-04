@@ -13,7 +13,6 @@ from ganglia_common.logger import Logger
 from ganglia_common.utils.performance_profiler import is_timing_enabled
 from ganglia_common.tts.types import Voice
 
-
 # Module-level registry of currently-running ``ffplay`` subprocesses, so the
 # top-level shutdown handler can kill them on Ctrl+C without each TTS instance
 # having to be passed around. ``play_speech_response`` adds itself on
@@ -70,7 +69,6 @@ class TextToSpeech(ABC):
             tuple: (success: bool, file_path: str) where file_path is the path
                   to the generated audio file if successful, None otherwise
         """
-        pass
 
     def is_local_filepath(self, file_path: str) -> bool:
         """Check if a file path is a local file path.
