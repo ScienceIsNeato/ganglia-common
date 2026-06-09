@@ -50,6 +50,10 @@ class ChatGPTQueryDispatcher:
         self.audio_output = audio_output
         self.audio_voice = audio_voice
         self.model = "gpt-4o-audio-preview" if audio_output else "gpt-4o-mini"
+        # Token usage from the most recent LLM call ({"prompt_tokens",
+        # "completion_tokens", "total_tokens"}), or None if unavailable. Read by
+        # the server after a turn for cost telemetry (ADR 004).
+        self.last_turn_usage = None
 
         if pre_prompt:
             self.messages.append({"role": "system", "content": pre_prompt})
@@ -95,7 +99,9 @@ class ChatGPTQueryDispatcher:
             messages_for_call = self.messages
 
         if is_timing_enabled():
-            Logger.print_perf(f"⏱️  [LLM] Sending query to OpenAI API ({self.model})...")
+            Logger.print_perf(
+                f"⏱️  [LLM] Sending query to OpenAI API ({self.model})..."
+            )
         else:
             Logger.print_debug("Sending query to AI server...")
 
@@ -213,6 +219,7 @@ class ChatGPTQueryDispatcher:
 
         self.messages.append({"role": "user", "content": current_input})
         start_time = time()
+        self.last_turn_usage = None  # reset; set from the usage chunk below
 
         self.rotate_session_history()
 
@@ -221,8 +228,13 @@ class ChatGPTQueryDispatcher:
 
         Logger.print_debug("Sending streaming query to AI server...")
 
+        # include_usage asks for a final chunk carrying token counts (for cost
+        # telemetry); that chunk has an empty `choices`, so guard before indexing.
         stream = self.client.chat.completions.create(
-            model="gpt-4o-mini", messages=messages_for_call, stream=True
+            model="gpt-4o-mini",
+            messages=messages_for_call,
+            stream=True,
+            stream_options={"include_usage": True},
         )
 
         full_response = ""
@@ -231,6 +243,15 @@ class ChatGPTQueryDispatcher:
         first_chunk_received = False
 
         for chunk in stream:
+            usage = getattr(chunk, "usage", None)
+            if usage is not None:
+                self.last_turn_usage = {
+                    "prompt_tokens": usage.prompt_tokens,
+                    "completion_tokens": usage.completion_tokens,
+                    "total_tokens": usage.total_tokens,
+                }
+            if not chunk.choices:
+                continue
             if not first_chunk_received and is_timing_enabled():
                 Logger.print_perf(
                     f"⏱️  [LLM] First chunk received (TTFB: {time() - start_time:.2f}s)"
