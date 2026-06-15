@@ -239,7 +239,7 @@ class ChatGPTQueryDispatcher:
 
         full_response = ""
         current_sentence = ""
-        sentence_endings = (".", "!", "?", "\n")
+        punctuation_endings = (".", "!", "?")
         first_chunk_received = False
 
         for chunk in stream:
@@ -262,14 +262,27 @@ class ChatGPTQueryDispatcher:
                 full_response += content
                 current_sentence += content
 
-                # Check if we've completed a sentence
-                if any(
-                    current_sentence.rstrip().endswith(end) for end in sentence_endings
-                ):
+                # Yield on sentence-ending punctuation OR a line break. The
+                # newline case matters for the transcript: verse and other
+                # intentional line breaks (e.g. a recited poem) must survive, so
+                # a trailing newline (capped at a paragraph break) is preserved on
+                # the yielded chunk. rstrip() is used only for the punctuation
+                # test — it would eat the newline the line-break test needs.
+                # (Previously "\n" was in the endings tuple but the rstrip made it
+                # dead, so line breaks were silently dropped.)
+                stripped_tail = current_sentence.rstrip()
+                ends_sentence = stripped_tail.endswith(punctuation_endings)
+                ends_line = current_sentence.endswith("\n")
+                if ends_sentence or ends_line:
+                    tail = current_sentence[len(stripped_tail) :]
+                    breaks = "\n" * min(tail.count("\n"), 2)
                     sentence = current_sentence.strip()
-                    if sentence:  # Only yield non-empty sentences
+                    if sentence:  # text chunk, optionally carrying its line break
                         Logger.print_debug(f"Streaming sentence: {sentence[:50]}...")
-                        yield sentence
+                        yield sentence + breaks
+                        current_sentence = ""
+                    elif breaks:  # a blank line on its own — a stanza/paragraph break
+                        yield breaks
                         current_sentence = ""
 
         # Yield any remaining text as the final sentence
