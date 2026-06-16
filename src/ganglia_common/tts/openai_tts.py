@@ -91,8 +91,10 @@ class OpenAITTS(TextToSpeech):
             if is_timing_enabled():
                 Logger.print_perf(f"⏱️  [TTS] Audio generated in {tts_elapsed:.2f}s")
 
-            # Save to file
-            timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+            # Save to file. Microsecond resolution (%f) keeps filenames unique
+            # when sentences synthesize concurrently (the lookahead pool) — a
+            # second-resolution stamp would collide and overwrite a sibling clip.
+            timestamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
             temp_dir = get_tempdir()
             os.makedirs(os.path.join(temp_dir, "tts"), exist_ok=True)
 
