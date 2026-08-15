@@ -14,14 +14,14 @@ class Voice:
     """Represents a voice configuration for TTS engines.
 
     Attributes:
-        engine: The TTS engine to use ('google' or 'chatterbox')
+        engine: The TTS engine to use ('google', 'chatterbox', or 'elevenlabs')
         name: Human-readable name for the voice
         id: Engine-specific ID (e.g., 'en-US-Neural2-F') or UUID for clones
         ref_audio: Path to reference audio file (required for cloning)
         created_at: Timestamp when voice was created/registered
         duration_seconds: Duration of reference audio in seconds
         sample_text: Text content of the reference audio sample
-        clone_id: Local clone identifier, when this voice was registered from a sample
+        clone_id: Local clone identifier when this voice was registered from a sample
         trainer: Voice clone trainer/backend that produced this voice metadata
         trainer_version: Trainer/backend version or mode
         storage_scope: Storage lifetime/scope for local clone artifacts
@@ -29,7 +29,7 @@ class Voice:
         custom_metadata: Backend-specific metadata for clone registration
     """
 
-    engine: Literal["google", "chatterbox"]
+    engine: Literal["google", "chatterbox", "elevenlabs"]
     name: str
     id: str | None = None
     ref_audio: str | None = None

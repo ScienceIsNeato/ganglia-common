@@ -16,3 +16,7 @@ venv/
 .slopmop/
 .coverage
 coverage.xml
+
+# dev scratch + AI session history (never publish)
+COMMIT_MSG.txt
+.specstory/

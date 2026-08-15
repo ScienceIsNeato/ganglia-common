@@ -8,7 +8,7 @@ setup(
     packages=find_packages(where="src"),
     python_requires=">=3.9",
     install_requires=[
-        "openai>=1.3.0",
+        "openai>=1.26.0",
         "python-dotenv>=1.0.0",
         "google-cloud-texttospeech>=2.14.1",
         "google-cloud-storage>=2.10.0",

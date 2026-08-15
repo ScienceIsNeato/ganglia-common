@@ -10,23 +10,21 @@ import re
 import subprocess
 import threading
 import time
-import typing
-from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
-from typing import List, Optional, Tuple
-
-from google.api_core import exceptions as google_exceptions
+from concurrent.futures import ThreadPoolExecutor
+from typing import Any, List, Tuple, Optional
 
 # Third-party imports
 from google.cloud import texttospeech_v1 as tts
+from google.api_core import exceptions as google_exceptions
 
 # Local imports
 from ganglia_common.logger import Logger
+from ganglia_common.utils.file_utils import get_tempdir
+from ganglia_common.utils.retry_utils import exponential_backoff
+from ganglia_common.utils.performance_profiler import is_timing_enabled
 from ganglia_common.tts.base_tts import TextToSpeech
 from ganglia_common.tts.types import Voice
-from ganglia_common.utils.file_utils import get_tempdir
-from ganglia_common.utils.performance_profiler import is_timing_enabled
-from ganglia_common.utils.retry_utils import exponential_backoff
 
 
 class GoogleTTS(TextToSpeech):
@@ -39,7 +37,15 @@ class GoogleTTS(TextToSpeech):
     # Class-level lock for gRPC client creation
     _client_lock = threading.Lock()
 
-    def __init__(self, apply_effects: typing.Any = False) -> None:
+    # Allowed ranges for the user-tunable audio effects (mirrors Google's API).
+    PITCH_RANGE = (-20.0, 20.0)
+    SPEAKING_RATE_RANGE = (0.25, 4.0)
+
+    # Defaults that give GANGLIA its deep, menacing voice.
+    DEFAULT_PITCH = -20.0
+    DEFAULT_SPEAKING_RATE = 0.9
+
+    def __init__(self, apply_effects: bool = True) -> None:
         """Initialize the Google TTS client.
 
         Args:
@@ -47,16 +53,57 @@ class GoogleTTS(TextToSpeech):
         """
         super().__init__()
         self.apply_effects = apply_effects
+        self.pitch = self.DEFAULT_PITCH
+        self.speaking_rate = self.DEFAULT_SPEAKING_RATE
         Logger.print_info(
             f"Initializing GoogleTTS{' with audio effects' if apply_effects else ''}..."
         )
         # Create a single shared client instance with thread safety
         with self._client_lock:
-            self._client: typing.Any = tts.TextToSpeechClient()
+            self._client = tts.TextToSpeechClient()
+
+    @staticmethod
+    def _clamp(value: float, low: float, high: float) -> float:
+        return max(low, min(high, value))
+
+    def set_effects(
+        self, pitch: Optional[float] = None, speaking_rate: Optional[float] = None
+    ) -> None:
+        """Update the tunable audio effects and enable effect processing.
+
+        Values are clamped to the ranges Google's API accepts. Any value left as
+        None keeps its current setting.
+        """
+        if pitch is not None:
+            self.pitch = self._clamp(float(pitch), *self.PITCH_RANGE)
+        if speaking_rate is not None:
+            self.speaking_rate = self._clamp(
+                float(speaking_rate), *self.SPEAKING_RATE_RANGE
+            )
+        # Customizing effects implicitly turns them on.
+        self.apply_effects = True
+        Logger.print_info(
+            f"GoogleTTS effects updated: pitch={self.pitch}, "
+            f"speaking_rate={self.speaking_rate}"
+        )
+
+    def get_effects(self) -> dict[str, Any]:
+        """Return current effect values plus their allowed ranges and defaults."""
+        return {
+            "apply_effects": self.apply_effects,
+            "pitch": self.pitch,
+            "speaking_rate": self.speaking_rate,
+            "pitch_range": list(self.PITCH_RANGE),
+            "speaking_rate_range": list(self.SPEAKING_RATE_RANGE),
+            "defaults": {
+                "pitch": self.DEFAULT_PITCH,
+                "speaking_rate": self.DEFAULT_SPEAKING_RATE,
+            },
+        }
 
     def _convert_text_to_speech_impl(
         self, text: str, voice: Voice, thread_id: Optional[str] = None
-    ) -> typing.Any:
+    ) -> Tuple[bool, Optional[str]]:
         """Internal implementation of text-to-speech conversion.
 
         Args:
@@ -68,8 +115,14 @@ class GoogleTTS(TextToSpeech):
             tuple: (success: bool, file_path: str) where file_path is the path
                   to the generated audio file if successful
         """
-        # Use provided voice ID or default
-        voice_id = voice.id if voice and voice.id else "en-US-Casual-K"
+        # Use the provided voice ID, defaulting when it's unset/empty or the
+        # legacy Casual-K placeholder — VoiceSelectionParams needs a real name,
+        # never None.
+        voice_id = (
+            voice.id
+            if voice and voice.id and voice.id != "en-US-Casual-K"
+            else "en-US-Wavenet-D"
+        )
 
         # Set up the text input and voice settings
         synthesis_input = tts.SynthesisInput(text=text)
@@ -83,8 +136,8 @@ class GoogleTTS(TextToSpeech):
             # Use Google's native audio parameters for deeper, more dramatic voice
             audio_config = tts.AudioConfig(
                 audio_encoding=tts.AudioEncoding.MP3,
-                pitch=-20.0,  # Deep pitch for demonic voice (range: -20.0 to 20.0)
-                speaking_rate=1,  # Slower for more menacing effect (range: 0.25 to 4.0)
+                pitch=self.pitch,  # Deep pitch for demonic voice (range: -20.0 to 20.0)
+                speaking_rate=self.speaking_rate,  # Slower = more menacing (range: 0.25 to 4.0)
             )
         else:
             audio_config = tts.AudioConfig(audio_encoding=tts.AudioEncoding.MP3)
@@ -111,7 +164,7 @@ class GoogleTTS(TextToSpeech):
         # Sanitize the text for use in filename
         # Take first 3 words and replace problematic characters
         words = text.split()[:3]
-        sanitized_words: list[str] = []
+        sanitized_words = []
         for word in words:
             # Replace slashes, parentheses, and other problematic characters
             sanitized = re.sub(r"[^\w\s-]", "_", word)
@@ -129,11 +182,8 @@ class GoogleTTS(TextToSpeech):
         return True, file_path
 
     def convert_text_to_speech(
-        self,
-        text: str,
-        voice: Optional[Voice] = None,
-        thread_id: Optional[str] = None,
-    ) -> tuple[bool, str | None]:
+        self, text: str, voice: Optional[Voice] = None, thread_id: Optional[str] = None
+    ) -> Tuple[bool, Optional[str]]:
         """Convert text to speech using the specified voice with retry logic.
 
         Args:
@@ -149,7 +199,7 @@ class GoogleTTS(TextToSpeech):
 
         # Create default voice if none provided (backward compatibility)
         if voice is None:
-            voice = Voice(engine="google", name="Default", id="en-US-Casual-K")
+            voice = Voice(engine="google", name="Default", id="en-US-Wavenet-D")
 
         try:
             return exponential_backoff(
@@ -163,7 +213,7 @@ class GoogleTTS(TextToSpeech):
             return False, None
 
     def convert_text_to_speech_streaming(
-        self, sentences: List[str], voice_id: typing.Any = "en-US-Casual-K"
+        self, sentences: List[str], voice_id: str = "en-US-Wavenet-D"
     ) -> Tuple[bool, Optional[str]]:
         """Convert multiple sentences to speech in parallel and concatenate.
 
@@ -205,7 +255,8 @@ class GoogleTTS(TextToSpeech):
             Logger.print_error("One or more TTS generations failed")
             return False, None
 
-        # Extract file paths
+        # Extract file paths (narrowing out None keeps the pyright gate honest;
+        # a success with no path can't happen, but the tuple type allows it)
         audio_files = [
             file_path for success, file_path in results if success and file_path
         ]

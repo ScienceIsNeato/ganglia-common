@@ -31,7 +31,8 @@ def test_send_query(monkeypatch):
 
     print("Query: ", test_prompt)
 
-    # Call the send_query function without mocking
+    # The client is mocked above, so this runs deterministically with no real
+    # API key — public contributors and keyless CI get a green suite.
     response = query_dispatcher.send_query(test_prompt)
 
     print("response: ", response)

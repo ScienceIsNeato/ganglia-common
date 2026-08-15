@@ -1,0 +1,7 @@
+{
+  "typeCheckingMode": "standard",
+  "include": ["src/ganglia_common"],
+  "exclude": ["**/__pycache__"],
+  "venvPath": ".",
+  "venv": "venv"
+}

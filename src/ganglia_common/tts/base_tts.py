@@ -1,17 +1,52 @@
 """Abstract Base Class for Text-to-Speech implementations."""
 
-import os
 import re
-import select
+import os
 import subprocess
 import sys
-import typing
+import select
+import threading
 from abc import ABC, abstractmethod
 from urllib.parse import urlparse
 
 from ganglia_common.logger import Logger
-from ganglia_common.tts.types import Voice
 from ganglia_common.utils.performance_profiler import is_timing_enabled
+from ganglia_common.tts.types import Voice
+
+# Module-level registry of currently-running ``ffplay`` subprocesses, so the
+# top-level shutdown handler can kill them on Ctrl+C without each TTS instance
+# having to be passed around. ``play_speech_response`` adds itself on
+# ``Popen``, removes itself once playback returns, and ``stop_active_playback``
+# (called from the shutdown coordinator) kills anything still in the set.
+_active_playback_processes: "set[subprocess.Popen[bytes]]" = set()
+_playback_lock = threading.Lock()
+
+
+def stop_active_playback() -> None:
+    """Terminate every in-flight playback subprocess.
+
+    Called from the shutdown coordinator. Best-effort: any subprocess whose
+    ``terminate``/``kill`` raises (already exited, OS error) is skipped, since
+    the goal is just to make sure no stray ``ffplay`` outlives the parent.
+    """
+    with _playback_lock:
+        procs = list(_active_playback_processes)
+        _active_playback_processes.clear()
+    for proc in procs:
+        try:
+            if proc.poll() is None:
+                proc.terminate()
+        except Exception:
+            pass
+    # Give processes a brief moment to exit on SIGTERM before escalating.
+    for proc in procs:
+        try:
+            proc.wait(timeout=0.3)
+        except Exception:
+            try:
+                proc.kill()
+            except Exception:
+                pass
 
 
 class TextToSpeech(ABC):
@@ -23,7 +58,7 @@ class TextToSpeech(ABC):
 
     @abstractmethod
     def convert_text_to_speech(
-        self, text: str, voice: Voice | None = None, thread_id: str | None = None
+        self, text: str, voice: Voice, thread_id: str | None = None
     ) -> tuple[bool, str | None]:
         """Convert text to speech using the specified voice.
 
@@ -64,7 +99,7 @@ class TextToSpeech(ABC):
             list: List of text chunks
         """
         sentences = [match.group() for match in re.finditer(r"[^.!?]*[.!?]", text)]
-        chunks: list[str] = []
+        chunks = []
 
         for sentence in sentences:
             while len(sentence) > max_length:
@@ -76,11 +111,8 @@ class TextToSpeech(ABC):
         return chunks
 
     def play_speech_response(
-        self,
-        file_path: typing.Any,
-        raw_response: typing.Any,
-        suppress_text_output: typing.Any = False,
-    ) -> typing.Any:
+        self, file_path: str, raw_response: str, suppress_text_output: bool = False
+    ) -> None:
         """Play speech response and handle user interaction.
 
         Args:
@@ -117,10 +149,20 @@ class TextToSpeech(ABC):
                 stdin=subprocess.DEVNULL,
             )
 
-            # Wait for playback to finish (no enter key monitoring for streaming)
-            playback_process.wait()
+            # Track this process so the shutdown coordinator can kill it on
+            # Ctrl+C — otherwise a long ``ffplay`` keeps ``wait()`` blocked.
+            with _playback_lock:
+                _active_playback_processes.add(playback_process)
+            try:
+                # Wait for playback to finish (no enter key monitoring for streaming)
+                playback_process.wait()
+            finally:
+                with _playback_lock:
+                    _active_playback_processes.discard(playback_process)
 
-    def monitor_enter_keypress(self, playback_process: typing.Any) -> typing.Any:
+    def monitor_enter_keypress(
+        self, playback_process: "subprocess.Popen[bytes]"
+    ) -> None:
         """Monitor for Enter key press to stop playback.
 
         Args:
@@ -137,7 +179,7 @@ class TextToSpeech(ABC):
                     playback_process.terminate()
                     break
 
-    def concatenate_audio_from_text(self, text_file_path: typing.Any) -> typing.Any:
+    def concatenate_audio_from_text(self, text_file_path: str) -> str:
         """Concatenate multiple audio files listed in a text file.
 
         Args:
@@ -147,7 +189,7 @@ class TextToSpeech(ABC):
             str: Path to the concatenated audio file
         """
         output_file = "combined_audio.mp3"
-        concat_command: list[str] = [
+        concat_command = [
             "ffmpeg",
             "-y",
             "-f",
@@ -167,7 +209,7 @@ class TextToSpeech(ABC):
         )
         return output_file
 
-    def prepare_playback(self, file_path: typing.Any) -> typing.Any:
+    def prepare_playback(self, file_path: str) -> tuple[list[str], float]:
         """Prepare audio playback command and get duration.
 
         Args:
@@ -177,7 +219,7 @@ class TextToSpeech(ABC):
             tuple: (play_command: list, audio_duration: float)
         """
         if file_path.endswith(".mp4"):
-            play_command: list[str] = ["ffplay", "-nodisp", "-autoexit", file_path]
+            play_command = ["ffplay", "-nodisp", "-autoexit", file_path]
         else:
             play_command = [
                 "ffplay",
@@ -190,7 +232,7 @@ class TextToSpeech(ABC):
         audio_duration = self.get_audio_duration(file_path)
         return play_command, audio_duration
 
-    def get_audio_duration(self, file_path: typing.Any) -> typing.Any:
+    def get_audio_duration(self, file_path: str) -> float:
         """Get the duration of an audio file.
 
         Args:
@@ -199,7 +241,7 @@ class TextToSpeech(ABC):
         Returns:
             float: Duration of the audio in seconds
         """
-        duration_command: list[str] = [
+        duration_command = [
             "ffprobe",
             "-v",
             "error",

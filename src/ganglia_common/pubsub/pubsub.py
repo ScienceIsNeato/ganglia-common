@@ -36,6 +36,11 @@ class EventType(Enum):
     CONVERSATION_STARTED = auto()  # New conversation started
     CONVERSATION_ENDED = auto()  # Conversation ended
 
+    # Quest system events
+    QUEST_EFFECT = auto()  # A quest step fired a named physical/prop effect
+    VOICE_CLONE_COMPLETE = auto()  # Background voice cloning finished successfully
+    VOICE_CLONE_FAILED = auto()  # Background voice cloning failed
+
     # General purpose events
     CUSTOM = auto()  # Custom event type for extensibility
 
