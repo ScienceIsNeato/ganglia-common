@@ -47,7 +47,8 @@ class ChatGPTQueryDispatcher:
             os.path.dirname(__file__), "config", "ganglia_config.json"
         )
         self.config_file_path = config_file_path or default_config
-        self.messages = []
+        # list[Any]: entries must satisfy OpenAI's ChatCompletionMessageParam
+        self.messages: list[Any] = []
         self.audio_output = audio_output
         self.audio_voice = audio_voice
         self.model = "gpt-4o-audio-preview" if audio_output else "gpt-4o-mini"
@@ -109,7 +110,7 @@ class ChatGPTQueryDispatcher:
                 model=self.model, messages=messages_for_call
             )
             self._capture_usage(chat)
-            reply = chat.choices[0].message.content
+            reply = chat.choices[0].message.content or ""
             self.messages.append({"role": "assistant", "content": reply})
 
             elapsed = time() - start_time
@@ -134,7 +135,7 @@ class ChatGPTQueryDispatcher:
 
     def _prepare_messages(
         self, current_input: str, extra_system_context: str | None = None
-    ) -> list[dict[str, str]]:
+    ) -> list[Any]:
         """Append the user turn, rotate history down to the cap, and build the
         message list for THIS call. The per-turn system context (e.g. an active
         quest beat) is injected just before the user message and never stored in

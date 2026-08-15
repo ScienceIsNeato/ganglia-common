@@ -3,3 +3,11 @@ requires = ["setuptools>=45", "wheel"]
 build-backend = "setuptools.build_meta"
 
 
+# Mirror ganglia-core's posture (core pyproject.toml, slop-mop #9): strict=true
+# hard-forces the Unknown* family, which mostly grades third-party objects
+# (OpenAI/Google responses) we don't own. Standard mode still catches real type
+# bugs — wrong arg types, None access, bad returns.
+[tool.slopmop.overconfidence.gates."type-blindness.py"]
+enabled = true
+strict = false
+pyright_config_file = "pyrightconfig.json"

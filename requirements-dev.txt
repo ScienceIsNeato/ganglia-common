@@ -4,3 +4,5 @@ pytest-timeout>=2.1.0
 pytest-cov>=4.1.0
 
 
+setuptools  # test_setup loads setup.py metadata; py3.12+ venvs don't bundle it
+pytest-testmon  # slop-mop's untested-code gate runs the suite through it

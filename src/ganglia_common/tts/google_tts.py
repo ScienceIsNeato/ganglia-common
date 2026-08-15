@@ -103,7 +103,7 @@ class GoogleTTS(TextToSpeech):
 
     def _convert_text_to_speech_impl(
         self, text: str, voice: Voice, thread_id: Optional[str] = None
-    ) -> Tuple[bool, str]:
+    ) -> Tuple[bool, Optional[str]]:
         """Internal implementation of text-to-speech conversion.
 
         Args:
@@ -214,7 +214,7 @@ class GoogleTTS(TextToSpeech):
 
     def convert_text_to_speech_streaming(
         self, sentences: List[str], voice_id: str = "en-US-Wavenet-D"
-    ) -> Tuple[bool, str]:
+    ) -> Tuple[bool, Optional[str]]:
         """Convert multiple sentences to speech in parallel and concatenate.
 
         NOTE: This legacy method still takes voice_id directly to avoid breaking
@@ -255,8 +255,11 @@ class GoogleTTS(TextToSpeech):
             Logger.print_error("One or more TTS generations failed")
             return False, None
 
-        # Extract file paths
-        audio_files = [file_path for success, file_path in results if success]
+        # Extract file paths (narrowing out None keeps the pyright gate honest;
+        # a success with no path can't happen, but the tuple type allows it)
+        audio_files = [
+            file_path for success, file_path in results if success and file_path
+        ]
 
         if not audio_files:
             return False, None
