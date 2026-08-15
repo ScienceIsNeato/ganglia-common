@@ -14,3 +14,7 @@ venv/
 
 # slop-mop working directory (machine-local state)
 .slopmop/
+
+# dev scratch + AI session history (never publish)
+COMMIT_MSG.txt
+.specstory/
