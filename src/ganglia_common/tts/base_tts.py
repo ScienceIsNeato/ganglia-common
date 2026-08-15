@@ -18,7 +18,7 @@ from ganglia_common.tts.types import Voice
 # having to be passed around. ``play_speech_response`` adds itself on
 # ``Popen``, removes itself once playback returns, and ``stop_active_playback``
 # (called from the shutdown coordinator) kills anything still in the set.
-_active_playback_processes: "set[subprocess.Popen]" = set()
+_active_playback_processes: "set[subprocess.Popen[bytes]]" = set()
 _playback_lock = threading.Lock()
 
 
@@ -57,7 +57,9 @@ class TextToSpeech(ABC):
     """
 
     @abstractmethod
-    def convert_text_to_speech(self, text: str, voice: Voice, thread_id: str = None):
+    def convert_text_to_speech(
+        self, text: str, voice: Voice, thread_id: str | None = None
+    ) -> tuple[bool, str | None]:
         """Convert text to speech using the specified voice.
 
         Args:
@@ -85,8 +87,8 @@ class TextToSpeech(ABC):
         except ValueError:
             return False
 
-    @classmethod
-    def split_text(cls, text: str, max_length: int = 250):
+    @staticmethod
+    def split_text(text: str, max_length: int = 250) -> list[str]:
         """Split text into chunks of maximum length while preserving sentences.
 
         Args:
@@ -108,7 +110,9 @@ class TextToSpeech(ABC):
 
         return chunks
 
-    def play_speech_response(self, file_path, raw_response, suppress_text_output=False):
+    def play_speech_response(
+        self, file_path: str, raw_response: str, suppress_text_output: bool = False
+    ) -> None:
         """Play speech response and handle user interaction.
 
         Args:
@@ -156,7 +160,9 @@ class TextToSpeech(ABC):
                 with _playback_lock:
                     _active_playback_processes.discard(playback_process)
 
-    def monitor_enter_keypress(self, playback_process):
+    def monitor_enter_keypress(
+        self, playback_process: "subprocess.Popen[bytes]"
+    ) -> None:
         """Monitor for Enter key press to stop playback.
 
         Args:
@@ -173,7 +179,7 @@ class TextToSpeech(ABC):
                     playback_process.terminate()
                     break
 
-    def concatenate_audio_from_text(self, text_file_path):
+    def concatenate_audio_from_text(self, text_file_path: str) -> str:
         """Concatenate multiple audio files listed in a text file.
 
         Args:
@@ -203,7 +209,7 @@ class TextToSpeech(ABC):
         )
         return output_file
 
-    def prepare_playback(self, file_path):
+    def prepare_playback(self, file_path: str) -> tuple[list[str], float]:
         """Prepare audio playback command and get duration.
 
         Args:
@@ -226,7 +232,7 @@ class TextToSpeech(ABC):
         audio_duration = self.get_audio_duration(file_path)
         return play_command, audio_duration
 
-    def get_audio_duration(self, file_path):
+    def get_audio_duration(self, file_path: str) -> float:
         """Get the duration of an audio file.
 
         Args:

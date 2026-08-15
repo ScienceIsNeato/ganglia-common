@@ -12,7 +12,7 @@ import threading
 import time
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
-from typing import List, Tuple, Optional
+from typing import Any, List, Tuple, Optional
 
 # Third-party imports
 from google.cloud import texttospeech_v1 as tts
@@ -45,7 +45,7 @@ class GoogleTTS(TextToSpeech):
     DEFAULT_PITCH = -20.0
     DEFAULT_SPEAKING_RATE = 0.9
 
-    def __init__(self, apply_effects=True):
+    def __init__(self, apply_effects: bool = True) -> None:
         """Initialize the Google TTS client.
 
         Args:
@@ -87,7 +87,7 @@ class GoogleTTS(TextToSpeech):
             f"speaking_rate={self.speaking_rate}"
         )
 
-    def get_effects(self) -> dict:
+    def get_effects(self) -> dict[str, Any]:
         """Return current effect values plus their allowed ranges and defaults."""
         return {
             "apply_effects": self.apply_effects,
@@ -102,8 +102,8 @@ class GoogleTTS(TextToSpeech):
         }
 
     def _convert_text_to_speech_impl(
-        self, text: str, voice: Voice, thread_id: str = None
-    ):
+        self, text: str, voice: Voice, thread_id: Optional[str] = None
+    ) -> Tuple[bool, str]:
         """Internal implementation of text-to-speech conversion.
 
         Args:
@@ -115,8 +115,14 @@ class GoogleTTS(TextToSpeech):
             tuple: (success: bool, file_path: str) where file_path is the path
                   to the generated audio file if successful
         """
-        # Use provided voice ID or default
-        voice_id = voice.id if voice and voice.id != "en-US-Casual-K" else "en-US-Wavenet-D"
+        # Use the provided voice ID, defaulting when it's unset/empty or the
+        # legacy Casual-K placeholder — VoiceSelectionParams needs a real name,
+        # never None.
+        voice_id = (
+            voice.id
+            if voice and voice.id and voice.id != "en-US-Casual-K"
+            else "en-US-Wavenet-D"
+        )
 
         # Set up the text input and voice settings
         synthesis_input = tts.SynthesisInput(text=text)
@@ -176,8 +182,8 @@ class GoogleTTS(TextToSpeech):
         return True, file_path
 
     def convert_text_to_speech(
-        self, text: str, voice: Optional[Voice] = None, thread_id: str = None
-    ):
+        self, text: str, voice: Optional[Voice] = None, thread_id: Optional[str] = None
+    ) -> Tuple[bool, Optional[str]]:
         """Convert text to speech using the specified voice with retry logic.
 
         Args:
@@ -207,7 +213,7 @@ class GoogleTTS(TextToSpeech):
             return False, None
 
     def convert_text_to_speech_streaming(
-        self, sentences: List[str], voice_id="en-US-Wavenet-D"
+        self, sentences: List[str], voice_id: str = "en-US-Wavenet-D"
     ) -> Tuple[bool, str]:
         """Convert multiple sentences to speech in parallel and concatenate.
 

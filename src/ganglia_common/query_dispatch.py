@@ -9,6 +9,7 @@ import os
 import base64
 from datetime import datetime
 from time import time
+from typing import Any, Iterator
 
 # Third-party imports
 from openai import OpenAI
@@ -28,11 +29,11 @@ class ChatGPTQueryDispatcher:
 
     def __init__(
         self,
-        pre_prompt=None,
-        config_file_path=None,
-        audio_output=False,
-        audio_voice="alloy",
-    ):
+        pre_prompt: str | None = None,
+        config_file_path: str | None = None,
+        audio_output: bool = False,
+        audio_voice: str = "alloy",
+    ) -> None:
         """Initialize the ChatGPT query dispatcher.
 
         Args:
@@ -53,12 +54,12 @@ class ChatGPTQueryDispatcher:
         # Token usage from the most recent LLM call ({"prompt_tokens",
         # "completion_tokens", "total_tokens"}), or None if unavailable. Read by
         # the server after a turn for cost telemetry (ADR 004).
-        self.last_turn_usage = None
+        self.last_turn_usage: dict[str, int] | None = None
 
         if pre_prompt:
             self.messages.append({"role": "system", "content": pre_prompt})
 
-    def add_system_context(self, context_lines):
+    def add_system_context(self, context_lines: list[str]) -> None:
         """Add system context messages to the conversation.
 
         Args:
@@ -67,7 +68,9 @@ class ChatGPTQueryDispatcher:
         for line in context_lines:
             self.messages.append({"role": "system", "content": line})
 
-    def send_query(self, current_input, extra_system_context=None):
+    def send_query(
+        self, current_input: str, extra_system_context: str | None = None
+    ) -> Any:
         """Send a query to the ChatGPT API and get the response.
 
         Args:
@@ -79,24 +82,9 @@ class ChatGPTQueryDispatcher:
             str or tuple: If audio_output=False, returns text response.
                          If audio_output=True, returns (text, audio_file_path)
         """
-        # Build the message list for this specific call, optionally injecting
-        # per-turn quest context without polluting the persistent history.
-        if extra_system_context:
-            messages_for_call = list(self.messages) + [
-                {"role": "system", "content": extra_system_context},
-                {"role": "user", "content": current_input},
-            ]
-        else:
-            messages_for_call = None  # will use self.messages after appending below
-
-        self.messages.append({"role": "user", "content": current_input})
+        messages_for_call = self._prepare_messages(current_input, extra_system_context)
         start_time = time()
-
-        self.rotate_session_history()  # Ensure history stays under the max length
-
-        # Use the per-call message list when extra context was provided
-        if messages_for_call is None:
-            messages_for_call = self.messages
+        self.last_turn_usage = None  # reset; set from this call's response below
 
         if is_timing_enabled():
             Logger.print_perf(
@@ -113,65 +101,14 @@ class ChatGPTQueryDispatcher:
                 audio={"voice": self.audio_voice, "format": "wav"},
                 messages=messages_for_call,
             )
-            reply = chat.choices[0].message.content or ""
-            audio_data = chat.choices[0].message.audio
-
-            # Check if audio was actually returned
-            if not audio_data or not hasattr(audio_data, "data"):
-                Logger.print_warning(
-                    "⚠️  Audio output requested but not received from API. Falling back to TTS."
-                )
-                # Fall back to regular text-only response + TTS
-                if not reply:
-                    reply = "[No response received]"
-                self.messages.append({"role": "assistant", "content": reply})
-                return (
-                    reply  # Return text only, will trigger TTS in conversation handler
-                )
-
-            # Get text transcript from audio if content is missing
-            if not reply and hasattr(audio_data, "transcript"):
-                reply = audio_data.transcript or "[Audio response - no transcript]"
-
-            # Save audio to file
-            timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-            temp_dir = get_tempdir()
-            os.makedirs(os.path.join(temp_dir, "tts"), exist_ok=True)
-            audio_file = os.path.join(
-                temp_dir, "tts", f"audio_response_{timestamp}.wav"
-            )
-
-            # Decode base64 audio and save (audio_data is an object, not a dict)
-            audio_bytes = base64.b64decode(audio_data.data)
-            with open(audio_file, "wb") as f:
-                f.write(audio_bytes)
-
-            self.messages.append({"role": "assistant", "content": reply})
-
-            elapsed = time() - start_time
-            if is_timing_enabled():
-                Logger.print_perf(
-                    f"⏱️  [LLM+AUDIO] Response received in {elapsed:.2f}s ({len(reply)} chars + audio)"
-                )
-            else:
-                Logger.print_info(
-                    f"AI response (with audio) received in {elapsed:.1f} seconds."
-                )
-
-            # Save text response
-            with open(
-                os.path.join(temp_dir, f"chatgpt_output_{timestamp}_raw.txt"),
-                "w",
-                encoding="utf-8",
-            ) as file:
-                file.write(reply)
-
-            return reply, audio_file
+            self._capture_usage(chat)
+            return self._handle_audio_reply(chat, start_time)
         else:
             # Standard text-only response
             chat = self.client.chat.completions.create(
                 model=self.model, messages=messages_for_call
             )
+            self._capture_usage(chat)
             reply = chat.choices[0].message.content
             self.messages.append({"role": "assistant", "content": reply})
 
@@ -195,7 +132,93 @@ class ChatGPTQueryDispatcher:
 
             return reply
 
-    def send_query_streaming(self, current_input, extra_system_context=None):
+    def _prepare_messages(
+        self, current_input: str, extra_system_context: str | None = None
+    ) -> list[dict[str, str]]:
+        """Append the user turn, rotate history down to the cap, and build the
+        message list for THIS call. The per-turn system context (e.g. an active
+        quest beat) is injected just before the user message and never stored in
+        history. Built AFTER rotation, so a call with extra context can't exceed
+        the history cap the way the old pre-rotation snapshot could."""
+        self.messages.append({"role": "user", "content": current_input})
+        self.rotate_session_history()
+        if not extra_system_context:
+            return self.messages
+        return list(self.messages[:-1]) + [
+            {"role": "system", "content": extra_system_context},
+            self.messages[-1],
+        ]
+
+    def _capture_usage(self, response: Any) -> None:
+        """Record token usage from a completion response/chunk for cost telemetry
+        (ADR 004). Absent usage leaves the turn-start reset (None) in place rather
+        than letting a previous call's counts go stale."""
+        usage = getattr(response, "usage", None)
+        if usage is not None:
+            self.last_turn_usage = {
+                "prompt_tokens": usage.prompt_tokens,
+                "completion_tokens": usage.completion_tokens,
+                "total_tokens": usage.total_tokens,
+            }
+
+    def _handle_audio_reply(self, chat: Any, start_time: float) -> Any:
+        """Unpack a gpt-4o-audio-preview response: save the WAV + transcript and
+        return ``(reply, audio_file)``, or fall back to text-only when the API
+        returned no audio."""
+        reply = chat.choices[0].message.content or ""
+        audio_data = chat.choices[0].message.audio
+
+        # Check if audio was actually returned
+        if not audio_data or not hasattr(audio_data, "data"):
+            Logger.print_warning(
+                "⚠️  Audio output requested but not received from API. Falling back to TTS."
+            )
+            # Fall back to regular text-only response + TTS
+            if not reply:
+                reply = "[No response received]"
+            self.messages.append({"role": "assistant", "content": reply})
+            return reply  # Return text only, will trigger TTS in conversation handler
+
+        # Get text transcript from audio if content is missing
+        if not reply and hasattr(audio_data, "transcript"):
+            reply = audio_data.transcript or "[Audio response - no transcript]"
+
+        # Save audio to file
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        temp_dir = get_tempdir()
+        os.makedirs(os.path.join(temp_dir, "tts"), exist_ok=True)
+        audio_file = os.path.join(temp_dir, "tts", f"audio_response_{timestamp}.wav")
+
+        # Decode base64 audio and save (audio_data is an object, not a dict)
+        audio_bytes = base64.b64decode(audio_data.data)
+        with open(audio_file, "wb") as f:
+            f.write(audio_bytes)
+
+        self.messages.append({"role": "assistant", "content": reply})
+
+        elapsed = time() - start_time
+        if is_timing_enabled():
+            Logger.print_perf(
+                f"⏱️  [LLM+AUDIO] Response received in {elapsed:.2f}s ({len(reply)} chars + audio)"
+            )
+        else:
+            Logger.print_info(
+                f"AI response (with audio) received in {elapsed:.1f} seconds."
+            )
+
+        # Save text response
+        with open(
+            os.path.join(temp_dir, f"chatgpt_output_{timestamp}_raw.txt"),
+            "w",
+            encoding="utf-8",
+        ) as file:
+            file.write(reply)
+
+        return reply, audio_file
+
+    def send_query_streaming(
+        self, current_input: str, extra_system_context: str | None = None
+    ) -> Iterator[str]:
         """Send a query to ChatGPT API and stream the response sentence by sentence.
 
         This enables faster perceived response time by allowing TTS generation to start
@@ -209,22 +232,9 @@ class ChatGPTQueryDispatcher:
         Yields:
             str: Individual sentences from the AI's response as they're completed
         """
-        if extra_system_context:
-            messages_for_call = list(self.messages) + [
-                {"role": "system", "content": extra_system_context},
-                {"role": "user", "content": current_input},
-            ]
-        else:
-            messages_for_call = None
-
-        self.messages.append({"role": "user", "content": current_input})
+        messages_for_call = self._prepare_messages(current_input, extra_system_context)
         start_time = time()
         self.last_turn_usage = None  # reset; set from the usage chunk below
-
-        self.rotate_session_history()
-
-        if messages_for_call is None:
-            messages_for_call = self.messages
 
         Logger.print_debug("Sending streaming query to AI server...")
 
@@ -243,13 +253,7 @@ class ChatGPTQueryDispatcher:
         first_chunk_received = False
 
         for chunk in stream:
-            usage = getattr(chunk, "usage", None)
-            if usage is not None:
-                self.last_turn_usage = {
-                    "prompt_tokens": usage.prompt_tokens,
-                    "completion_tokens": usage.completion_tokens,
-                    "total_tokens": usage.total_tokens,
-                }
+            self._capture_usage(chunk)
             if not chunk.choices:
                 continue
             if not first_chunk_received and is_timing_enabled():
@@ -309,7 +313,7 @@ class ChatGPTQueryDispatcher:
         ) as file:
             file.write(full_response)
 
-    def rotate_session_history(self):
+    def rotate_session_history(self) -> None:
         """Rotate session history to keep token count under limit."""
         total_tokens = 0
         for message in self.messages:
@@ -327,14 +331,16 @@ class ChatGPTQueryDispatcher:
             )
             Logger.print_debug(debug_msg)
 
-    def count_tokens(self):
+    def count_tokens(self) -> int:
         """Count total tokens in the message history."""
         total_tokens = 0
         for message in self.messages:
             total_tokens += len(message["content"].split())
         return total_tokens
 
-    def filter_content_for_dalle(self, content, max_attempts=3):
+    def filter_content_for_dalle(
+        self, content: str, max_attempts: int = 3
+    ) -> tuple[bool, str | None]:
         """Filter content to ensure it passes DALL-E's content filters.
 
         Args:
@@ -364,7 +370,7 @@ class ChatGPTQueryDispatcher:
 
         return False, None
 
-    def _get_dalle_filter_prompt(self, content):
+    def _get_dalle_filter_prompt(self, content: str) -> str:
         """Get the prompt for filtering content for DALL-E.
 
         Args:
