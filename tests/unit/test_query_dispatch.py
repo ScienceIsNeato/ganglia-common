@@ -71,6 +71,25 @@ def test_dispatcher_streams_complete_sentences(tmp_path, monkeypatch):
     }
 
 
+def test_prepare_messages_injects_extra_context_without_storing_it():
+    dispatcher = ChatGPTQueryDispatcher(pre_prompt="Be spooky.")
+
+    messages_for_call = dispatcher._prepare_messages(
+        "hello", extra_system_context="Active quest: trinket hunt"
+    )
+
+    # Injected just before the user turn, for this call only
+    assert messages_for_call[-2:] == [
+        {"role": "system", "content": "Active quest: trinket hunt"},
+        {"role": "user", "content": "hello"},
+    ]
+    # ...and never persisted into session history
+    assert dispatcher.messages == [
+        {"role": "system", "content": "Be spooky."},
+        {"role": "user", "content": "hello"},
+    ]
+
+
 def test_dispatcher_audio_falls_back_when_audio_is_missing():
     dispatcher = ChatGPTQueryDispatcher(audio_output=True)
     dispatcher.client.chat.completions.create = lambda **_: SimpleNamespace(
@@ -79,6 +98,19 @@ def test_dispatcher_audio_falls_back_when_audio_is_missing():
         ]
     )
     assert dispatcher.send_query("start") == "fallback"
+
+
+def test_dispatcher_audio_fallback_substitutes_placeholder_for_empty_reply():
+    dispatcher = ChatGPTQueryDispatcher(audio_output=True)
+    dispatcher.client.chat.completions.create = lambda **_: SimpleNamespace(
+        choices=[SimpleNamespace(message=SimpleNamespace(content=None, audio=None))]
+    )
+
+    assert dispatcher.send_query("start") == "[No response received]"
+    assert dispatcher.messages[-1] == {
+        "role": "assistant",
+        "content": "[No response received]",
+    }
 
 
 def test_dispatcher_audio_writes_wav(tmp_path, monkeypatch):
