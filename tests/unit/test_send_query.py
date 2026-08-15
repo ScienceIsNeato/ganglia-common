@@ -20,8 +20,15 @@ def test_send_query():
 
     print("Query: ", test_prompt)
 
-    # Call the send_query function without mocking
-    response = query_dispatcher.send_query(test_prompt)
+    # This is a LIVE test — it exercises the real OpenAI API when a valid key
+    # is configured, and skips cleanly when one isn't (public contributors and
+    # keyless CI shouldn't see a red suite for missing credentials).
+    import openai
+
+    try:
+        response = query_dispatcher.send_query(test_prompt)
+    except openai.AuthenticationError:
+        pytest.skip("no valid OPENAI_API_KEY configured; skipping live API test")
 
     print("response: ", response)
     print("expected_in_response: ", expected_in_response)
