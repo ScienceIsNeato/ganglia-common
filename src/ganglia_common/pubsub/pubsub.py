@@ -5,12 +5,14 @@ for decoupled communication between different components of the GANGLIA system,
 particularly enabling the integration of chatbot and TTV functionalities.
 """
 
-from typing import Dict, List, Callable, Any
-from enum import Enum, auto
-import uuid
 import queue
 import threading
 import time
+import typing
+import uuid
+from enum import Enum, auto
+from typing import Any, Callable, Dict, List
+
 from ganglia_common.logger import Logger
 
 
@@ -49,10 +51,10 @@ class Event:
     def __init__(
         self,
         event_type: EventType,
-        data: Dict[str, Any] = None,
-        source: str = None,
-        target: str = None,
-    ):
+        data: Dict[str, Any] | None = None,
+        source: str | None = None,
+        target: str | None = None,
+    ) -> None:
         """
         Initialize a new event.
 
@@ -69,7 +71,7 @@ class Event:
         self.target = target
         self.timestamp = time.time()  # Event creation time
 
-    def __str__(self):
+    def __str__(self) -> str:
         return (
             f"Event({self.event_type.name}, source={self.source}, target={self.target})"
         )
@@ -78,28 +80,29 @@ class Event:
 class PubSub:
     """A simple publish-subscribe system for asynchronous communication."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the pubsub system."""
         self._subscribers: Dict[EventType, List[Callable[[Event], None]]] = {}
-        self._event_queue = queue.Queue()
+        self._event_queue: queue.Queue[Event] = queue.Queue()
         self._running = False
-        self._thread = None
+        self._thread: threading.Thread | None = None
 
         # Initialize the event types
         for event_type in EventType:
             self._subscribers[event_type] = []
 
-    def start(self):
+    def start(self) -> typing.Any:
         """Start the pubsub event processing thread."""
         if self._running:
             return
 
         self._running = True
-        self._thread = threading.Thread(target=self._process_events, daemon=True)
-        self._thread.start()
+        thread = threading.Thread(target=self._process_events, daemon=True)
+        self._thread = thread
+        thread.start()
         Logger.print_debug("PubSub system started")
 
-    def stop(self):
+    def stop(self) -> typing.Any:
         """Stop the pubsub event processing thread."""
         self._running = False
         if self._thread:
@@ -107,7 +110,9 @@ class PubSub:
             self._thread = None
         Logger.print_debug("PubSub system stopped")
 
-    def subscribe(self, event_type: EventType, callback: Callable[[Event], None]):
+    def subscribe(
+        self, event_type: EventType, callback: Callable[[Event], None]
+    ) -> typing.Any:
         """
         Subscribe to a specific event type.
 
@@ -121,7 +126,9 @@ class PubSub:
         self._subscribers[event_type].append(callback)
         Logger.print_debug(f"Subscribed to {event_type.name} events")
 
-    def unsubscribe(self, event_type: EventType, callback: Callable[[Event], None]):
+    def unsubscribe(
+        self, event_type: EventType, callback: Callable[[Event], None]
+    ) -> typing.Any:
         """
         Unsubscribe from a specific event type.
 
@@ -136,7 +143,7 @@ class PubSub:
             self._subscribers[event_type].remove(callback)
             Logger.print_debug(f"Unsubscribed from {event_type.name} events")
 
-    def publish(self, event: Event):
+    def publish(self, event: Event) -> typing.Any:
         """
         Publish an event to all subscribers.
 
@@ -146,7 +153,7 @@ class PubSub:
         self._event_queue.put(event)
         Logger.print_debug(f"Published event: {event}")
 
-    def _process_events(self):
+    def _process_events(self) -> typing.Any:
         """Process events from the queue and dispatch to subscribers."""
         while self._running:
             try:
@@ -158,7 +165,7 @@ class PubSub:
             except Exception as e:
                 Logger.print_error(f"Error processing event: {e}")
 
-    def _dispatch_event(self, event: Event):
+    def _dispatch_event(self, event: Event) -> typing.Any:
         """
         Dispatch an event to all subscribers of its type.
 
@@ -177,7 +184,7 @@ class PubSub:
 _instance = None
 
 
-def get_pubsub():
+def get_pubsub() -> typing.Any:
     """Get the singleton PubSub instance."""
     global _instance
     if _instance is None:

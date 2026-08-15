@@ -4,24 +4,25 @@ This module provides timing instrumentation to measure conversation pipeline per
 and identify bottlenecks in the speech-to-text, AI query, and text-to-speech stages.
 """
 
-import time
 import functools
-from typing import Optional, Dict, List
+import time
+import typing
 from contextlib import contextmanager
-from ganglia_common.logger import Logger
+from typing import Dict, List, Optional
 
+from ganglia_common.logger import Logger
 
 # Global flag to control timing analysis
 _timing_enabled = False
 
 
-def enable_timing_analysis():
+def enable_timing_analysis() -> typing.Any:
     """Enable timing analysis globally."""
     global _timing_enabled
     _timing_enabled = True
 
 
-def disable_timing_analysis():
+def disable_timing_analysis() -> typing.Any:
     """Disable timing analysis globally."""
     global _timing_enabled
     _timing_enabled = False
@@ -35,10 +36,10 @@ def is_timing_enabled() -> bool:
 class PerformanceStats:
     """Collect and analyze performance statistics."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.timings: Dict[str, List[float]] = {}
 
-    def record(self, name: str, duration: float):
+    def record(self, name: str, duration: float) -> typing.Any:
         """Record a timing measurement.
 
         Args:
@@ -80,7 +81,7 @@ class PerformanceStats:
             "max": values[-1],
         }
 
-    def print_summary(self):
+    def print_summary(self) -> typing.Any:
         """Print a summary of all collected statistics."""
         Logger.print_info("=" * 60)
         Logger.print_info("PERFORMANCE SUMMARY")
@@ -100,7 +101,7 @@ class PerformanceStats:
 
         Logger.print_info("=" * 60)
 
-    def reset(self):
+    def reset(self) -> typing.Any:
         """Clear all collected statistics."""
         self.timings.clear()
 
@@ -115,7 +116,7 @@ def get_global_stats() -> PerformanceStats:
 
 
 @contextmanager
-def Timer(name: str, log: bool = True, collect_stats: bool = True):
+def Timer(name: str, log: bool = True, collect_stats: bool = True) -> typing.Any:
     """Context manager for timing code blocks.
 
     Args:
@@ -142,7 +143,9 @@ def Timer(name: str, log: bool = True, collect_stats: bool = True):
         _global_stats.record(name, elapsed)
 
 
-def timed(name: Optional[str] = None, log: bool = True, collect_stats: bool = True):
+def timed(
+    name: Optional[str] = None, log: bool = True, collect_stats: bool = True
+) -> typing.Any:
     """Decorator for timing function execution.
 
     Args:
@@ -160,11 +163,11 @@ def timed(name: Optional[str] = None, log: bool = True, collect_stats: bool = Tr
             pass
     """
 
-    def decorator(func):
+    def decorator(func: typing.Any) -> typing.Any:
         operation_name = name or func.__name__
 
         @functools.wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: typing.Any, **kwargs: typing.Any) -> typing.Any:
             start = time.time()
             try:
                 result = func(*args, **kwargs)
@@ -186,60 +189,60 @@ def timed(name: Optional[str] = None, log: bool = True, collect_stats: bool = Tr
 class ConversationTimer:
     """Track timing for a complete conversation turn."""
 
-    def __init__(self):
-        self.user_start = None
-        self.user_end = None
-        self.ai_start = None
-        self.ai_end = None
-        self.stt_start = None
-        self.stt_end = None
-        self.llm_start = None
-        self.llm_end = None
-        self.tts_start = None
-        self.tts_end = None
-        self.playback_start = None
+    def __init__(self) -> None:
+        self.user_start: Optional[float] = None
+        self.user_end: Optional[float] = None
+        self.ai_start: Optional[float] = None
+        self.ai_end: Optional[float] = None
+        self.stt_start: Optional[float] = None
+        self.stt_end: Optional[float] = None
+        self.llm_start: Optional[float] = None
+        self.llm_end: Optional[float] = None
+        self.tts_start: Optional[float] = None
+        self.tts_end: Optional[float] = None
+        self.playback_start: Optional[float] = None
 
-    def mark_user_start(self):
+    def mark_user_start(self) -> typing.Any:
         """Mark start of user turn."""
         self.user_start = time.time()
 
-    def mark_user_end(self):
+    def mark_user_end(self) -> typing.Any:
         """Mark end of user turn (finished speaking)."""
         self.user_end = time.time()
 
-    def mark_stt_start(self):
+    def mark_stt_start(self) -> typing.Any:
         """Mark start of speech-to-text processing."""
         self.stt_start = time.time()
 
-    def mark_stt_end(self):
+    def mark_stt_end(self) -> typing.Any:
         """Mark end of speech-to-text processing."""
         self.stt_end = time.time()
 
-    def mark_ai_start(self):
+    def mark_ai_start(self) -> typing.Any:
         """Mark start of AI turn."""
         self.ai_start = time.time()
 
-    def mark_llm_start(self):
+    def mark_llm_start(self) -> typing.Any:
         """Mark start of LLM query."""
         self.llm_start = time.time()
 
-    def mark_llm_end(self):
+    def mark_llm_end(self) -> typing.Any:
         """Mark end of LLM query."""
         self.llm_end = time.time()
 
-    def mark_tts_start(self):
+    def mark_tts_start(self) -> typing.Any:
         """Mark start of text-to-speech generation."""
         self.tts_start = time.time()
 
-    def mark_tts_end(self):
+    def mark_tts_end(self) -> typing.Any:
         """Mark end of text-to-speech generation."""
         self.tts_end = time.time()
 
-    def mark_playback_start(self):
+    def mark_playback_start(self) -> typing.Any:
         """Mark start of audio playback."""
         self.playback_start = time.time()
 
-    def mark_ai_end(self):
+    def mark_ai_end(self) -> typing.Any:
         """Mark end of AI turn."""
         self.ai_end = time.time()
 
@@ -282,7 +285,7 @@ class ConversationTimer:
             return self.ai_end - self.ai_start
         return None
 
-    def print_breakdown(self):
+    def print_breakdown(self) -> typing.Any:
         """Print visual timeline from user stops speaking to AI starts speaking."""
         if not _timing_enabled:
             return
@@ -299,7 +302,7 @@ class ConversationTimer:
         Logger.print_perf("🎯 RESPONSE LATENCY TIMELINE (T=0 = User Stopped Speaking)")
         Logger.print_perf("=" * 80)
 
-        timeline = []
+        timeline: list[tuple[str, float, float]] = []
 
         # STT finalization (silence detection already happened)
         if self.stt_end:

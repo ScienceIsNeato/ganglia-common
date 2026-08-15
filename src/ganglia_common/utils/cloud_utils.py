@@ -1,10 +1,13 @@
 """Cloud utilities for GCS operations."""
 
 import os
+import typing
 from datetime import timedelta
 from typing import Optional
-from google.cloud import storage
+
+from google.cloud import storage  # type: ignore[attr-defined]
 from google.oauth2 import service_account
+
 from ganglia_common.logger import Logger
 
 
@@ -33,10 +36,13 @@ def upload_to_gcs(
                 "GOOGLE_APPLICATION_CREDENTIALS environment variable not set"
             )
 
-        credentials = service_account.Credentials.from_service_account_file(
+        credentials_factory: typing.Any = service_account.Credentials
+        credentials = credentials_factory.from_service_account_file(
             service_account_path
         )
-        storage_client = storage.Client(credentials=credentials, project=project_name)
+        storage_client: typing.Any = storage.Client(
+            credentials=credentials, project=project_name
+        )
 
         if not destination_blob_name:
             destination_blob_name = os.path.basename(local_file_path)
@@ -51,7 +57,9 @@ def upload_to_gcs(
 
 
 def get_video_stream_url(
-    blob: storage.Blob, expiration_minutes: int = 60, service_account_path: str = None
+    blob: typing.Any,
+    expiration_minutes: int = 60,
+    service_account_path: Optional[str] = None,
 ) -> str:
     """Generate a signed URL for streaming a video from GCS.
 
@@ -86,10 +94,11 @@ def get_video_stream_url(
                 f"Service account file not found at: {service_account_path}"
             )
 
-        credentials = service_account.Credentials.from_service_account_file(
+        credentials_factory: typing.Any = service_account.Credentials
+        credentials = credentials_factory.from_service_account_file(
             service_account_path
         )
-        storage_client = storage.Client(
+        storage_client: typing.Any = storage.Client(
             credentials=credentials, project=blob.bucket.client.project
         )
         # Get a new blob instance with the service account client

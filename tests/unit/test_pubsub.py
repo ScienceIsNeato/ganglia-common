@@ -4,10 +4,11 @@ This module contains tests for the publish-subscribe system used for
 asynchronous communication between components.
 """
 
-import unittest
 import time
+import unittest
 from unittest.mock import MagicMock
-from ganglia_common.pubsub import get_pubsub, Event, EventType
+
+from ganglia_common.pubsub import Event, EventType, get_pubsub
 
 
 class TestPubSub(unittest.TestCase):

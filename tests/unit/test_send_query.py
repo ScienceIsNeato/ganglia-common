@@ -1,6 +1,9 @@
 import sys
 from pathlib import Path
+from types import SimpleNamespace
+
 import pytest
+
 from ganglia_common.query_dispatch import ChatGPTQueryDispatcher
 from ganglia_common.utils import get_config_path
 
@@ -12,23 +15,25 @@ def query_dispatcher():
     return ChatGPTQueryDispatcher(config_file_path=get_config_path())
 
 
-def test_send_query():
+def test_send_query(monkeypatch):
     expected_in_response = "Paris"
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     query_dispatcher = ChatGPTQueryDispatcher(config_file_path=get_config_path())
+    query_dispatcher.client.chat.completions.create = lambda **_: SimpleNamespace(
+        choices=[
+            SimpleNamespace(
+                message=SimpleNamespace(content="The capital of France is Paris.")
+            )
+        ]
+    )
 
     test_prompt = "What is the capital of France?"
 
     print("Query: ", test_prompt)
 
-    # This is a LIVE test — it exercises the real OpenAI API when a valid key
-    # is configured, and skips cleanly when one isn't (public contributors and
-    # keyless CI shouldn't see a red suite for missing credentials).
-    import openai
-
-    try:
-        response = query_dispatcher.send_query(test_prompt)
-    except openai.AuthenticationError:
-        pytest.skip("no valid OPENAI_API_KEY configured; skipping live API test")
+    # The client is mocked above, so this runs deterministically with no real
+    # API key — public contributors and keyless CI get a green suite.
+    response = query_dispatcher.send_query(test_prompt)
 
     print("response: ", response)
     print("expected_in_response: ", expected_in_response)

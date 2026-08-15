@@ -1,7 +1,9 @@
-import pytest
 from unittest.mock import Mock, patch
-from ganglia_common.utils import exponential_backoff
+
+import pytest
+
 from ganglia_common.logger import Logger
+from ganglia_common.utils import exponential_backoff, file_utils
 
 
 def test_exponential_backoff_success():
@@ -57,3 +59,21 @@ def test_exponential_backoff_with_thread_id():
     assert any(
         "test-thread" in str(call) for call in mock_info.call_args_list
     ), f"thread-id not found in info calls: {mock_info.call_args_list}"
+
+
+def test_exponential_backoff_rejects_zero_retries():
+    with pytest.raises(RuntimeError, match="Retry loop exited"):
+        exponential_backoff(Mock(), max_retries=0)
+
+
+def test_file_utils_create_temp_and_timestamped_directories(tmp_path, monkeypatch):
+    monkeypatch.setenv("GANGLIA_TEMP_DIR", str(tmp_path))
+    monkeypatch.setattr(file_utils, "_current_ttv_dir", None)
+
+    assert file_utils.get_tempdir() == str(tmp_path)
+    first = file_utils.get_timestamped_ttv_dir()
+    second = file_utils.get_timestamped_ttv_dir()
+
+    assert first == second
+    assert first.startswith(str(tmp_path / "ttv"))
+    assert file_utils.get_config_path().endswith("config/ganglia_config.json")
