@@ -11,3 +11,9 @@ build-backend = "setuptools.build_meta"
 enabled = true
 strict = false
 pyright_config_file = "pyrightconfig.json"
+
+# Enforce timezone-aware datetimes (flake8-datetimez). Naive datetime.now()/
+# fromtimestamp()/strptime() calls fail the linter so tz-naive timestamps can't
+# creep back in — use datetime.now(timezone.utc), etc.
+[tool.ruff.lint]
+extend-select = ["DTZ"]

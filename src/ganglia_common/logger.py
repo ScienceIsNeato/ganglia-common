@@ -33,7 +33,7 @@ Color Scheme:
 
 import threading
 import typing
-from datetime import datetime
+from datetime import datetime, timezone
 
 import blessed
 
@@ -89,7 +89,7 @@ class Logger:
     def _get_timestamp() -> typing.Any:
         """Get formatted timestamp if timestamps are enabled."""
         if Logger._timestamps_enabled:
-            return f"[{datetime.now().strftime('%H:%M:%S.%f')[:-3]}] "
+            return f"[{datetime.now(timezone.utc).strftime('%H:%M:%S.%f')[:-3]}] "
         return ""
 
     @staticmethod

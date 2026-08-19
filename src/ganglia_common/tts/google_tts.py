@@ -10,21 +10,22 @@ import re
 import subprocess
 import threading
 import time
-from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, List, Tuple, Optional
+from datetime import datetime, timezone
+from typing import Any, List, Optional, Tuple
+
+from google.api_core import exceptions as google_exceptions
 
 # Third-party imports
 from google.cloud import texttospeech_v1 as tts
-from google.api_core import exceptions as google_exceptions
 
 # Local imports
 from ganglia_common.logger import Logger
-from ganglia_common.utils.file_utils import get_tempdir
-from ganglia_common.utils.retry_utils import exponential_backoff
-from ganglia_common.utils.performance_profiler import is_timing_enabled
 from ganglia_common.tts.base_tts import TextToSpeech
 from ganglia_common.tts.types import Voice
+from ganglia_common.utils.file_utils import get_tempdir
+from ganglia_common.utils.performance_profiler import is_timing_enabled
+from ganglia_common.utils.retry_utils import exponential_backoff
 
 
 class GoogleTTS(TextToSpeech):
@@ -172,7 +173,7 @@ class GoogleTTS(TextToSpeech):
         snippet = "_".join(sanitized_words)
 
         # Save the audio to a file (with microseconds to avoid collisions in parallel generation)
-        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S-%f")
         file_path = os.path.join(
             temp_dir, "tts", f"chatgpt_response_{snippet}_{timestamp}.mp3"
         )
@@ -267,7 +268,7 @@ class GoogleTTS(TextToSpeech):
         # Concatenate audio files
         try:
             temp_dir = get_tempdir()
-            timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
             output_file = os.path.join(temp_dir, "tts", f"concatenated_{timestamp}.mp3")
 
             # Create file list for ffmpeg

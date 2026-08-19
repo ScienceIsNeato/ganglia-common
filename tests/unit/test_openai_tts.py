@@ -33,8 +33,9 @@ def test_oversized_text_without_chunks_fails_cleanly():
 
 
 def test_openai_tts_initializes_with_supported_fallback_voice():
-    with patch("ganglia_common.tts.openai_tts.OpenAI"), patch(
-        "ganglia_common.tts.openai_tts.Logger.print_info"
+    with (
+        patch("ganglia_common.tts.openai_tts.OpenAI"),
+        patch("ganglia_common.tts.openai_tts.Logger.print_info"),
     ):
         assert OpenAITTS("unsupported").voice == "onyx"
 

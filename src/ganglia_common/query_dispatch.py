@@ -5,9 +5,9 @@ handles session history, and provides content filtering capabilities for DALL-E 
 """
 
 # Standard library imports
-import os
 import base64
-from datetime import datetime
+import os
+from datetime import datetime, timezone
 from time import time
 from typing import Any, Iterator
 
@@ -88,9 +88,7 @@ class ChatGPTQueryDispatcher:
         self.last_turn_usage = None  # reset; set from this call's response below
 
         if is_timing_enabled():
-            Logger.print_perf(
-                f"⏱️  [LLM] Sending query to OpenAI API ({self.model})..."
-            )
+            Logger.print_perf(f"⏱️  [LLM] Sending query to OpenAI API ({self.model})...")
         else:
             Logger.print_debug("Sending query to AI server...")
 
@@ -121,7 +119,7 @@ class ChatGPTQueryDispatcher:
             else:
                 Logger.print_info(f"AI response received in {elapsed:.1f} seconds.")
 
-            timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
             temp_dir = get_tempdir()
 
             with open(
@@ -185,7 +183,7 @@ class ChatGPTQueryDispatcher:
             reply = audio_data.transcript or "[Audio response - no transcript]"
 
         # Save audio to file
-        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
         temp_dir = get_tempdir()
         os.makedirs(os.path.join(temp_dir, "tts"), exist_ok=True)
         audio_file = os.path.join(temp_dir, "tts", f"audio_response_{timestamp}.wav")
@@ -304,7 +302,7 @@ class ChatGPTQueryDispatcher:
         )
 
         # Save the response to disk
-        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
         temp_dir = get_tempdir()
 
         with open(

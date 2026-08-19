@@ -3,7 +3,7 @@
 import os
 import tempfile
 import typing
-from datetime import datetime
+from datetime import datetime, timezone
 
 from ganglia_common.logger import Logger
 
@@ -40,7 +40,7 @@ def get_timestamped_ttv_dir() -> str:
     """
     global _current_ttv_dir  # pylint: disable=global-statement
     if _current_ttv_dir is None:
-        timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H-%M-%S")
         _current_ttv_dir = os.path.join(get_tempdir(), "ttv", timestamp)
         os.makedirs(_current_ttv_dir, exist_ok=True)
         Logger.print_info(f"📁 TTV directory created: {_current_ttv_dir}")

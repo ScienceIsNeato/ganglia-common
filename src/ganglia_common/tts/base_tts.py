@@ -1,17 +1,17 @@
 """Abstract Base Class for Text-to-Speech implementations."""
 
-import re
 import os
+import re
+import select
 import subprocess
 import sys
-import select
 import threading
 from abc import ABC, abstractmethod
 from urllib.parse import urlparse
 
 from ganglia_common.logger import Logger
-from ganglia_common.utils.performance_profiler import is_timing_enabled
 from ganglia_common.tts.types import Voice
+from ganglia_common.utils.performance_profiler import is_timing_enabled
 
 # Module-level registry of currently-running ``ffplay`` subprocesses, so the
 # top-level shutdown handler can kill them on Ctrl+C without each TTS instance
