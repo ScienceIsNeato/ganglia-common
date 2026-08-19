@@ -8,7 +8,7 @@ import os
 import subprocess
 import time
 from concurrent.futures import Future, ThreadPoolExecutor
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional, Tuple
 
 from openai import OpenAI
@@ -99,7 +99,7 @@ class OpenAITTS(TextToSpeech):
             # Save to file. Microsecond resolution (%f) keeps filenames unique
             # when sentences synthesize concurrently (the lookahead pool) — a
             # second-resolution stamp would collide and overwrite a sibling clip.
-            timestamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S-%f")
             temp_dir = get_tempdir()
             os.makedirs(os.path.join(temp_dir, "tts"), exist_ok=True)
 
@@ -241,7 +241,7 @@ class OpenAITTS(TextToSpeech):
         """
         concat_start = time.time()
 
-        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
         temp_dir = get_tempdir()
         output_path = os.path.join(temp_dir, "tts", f"concatenated_{timestamp}.mp3")
 
