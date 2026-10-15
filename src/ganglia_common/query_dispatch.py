@@ -239,8 +239,11 @@ class ChatGPTQueryDispatcher:
 
         # include_usage asks for a final chunk carrying token counts (for cost
         # telemetry); that chunk has an empty `choices`, so guard before indexing.
+        # Stream with the configured model, so a caller that sets `self.model`
+        # gets it here too. Audio-output mode is the exception: its model only
+        # answers in audio, and streaming is text-only.
         stream = self.client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-4o-mini" if self.audio_output else self.model,
             messages=messages_for_call,
             stream=True,
             stream_options={"include_usage": True},
