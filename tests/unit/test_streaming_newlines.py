@@ -77,3 +77,30 @@ def test_plain_prose_is_unchanged():
     chunks = _dispatcher_streaming(["Hello there.", " How are you?"])
     assert all(not c.endswith("\n") for c in chunks)
     assert _reassemble(chunks) == "Hello there. How are you?"
+
+
+def _model_used(**dispatcher_kwargs):
+    qd = ChatGPTQueryDispatcher(config_file_path=get_config_path(), **dispatcher_kwargs)
+    seen = {}
+
+    def create(**kwargs):
+        seen["model"] = kwargs["model"]
+        return iter([_delta("Hi."), _usage_chunk()])
+
+    qd.client = SimpleNamespace(
+        chat=SimpleNamespace(completions=SimpleNamespace(create=create))
+    )
+    return qd, seen
+
+
+def test_streaming_uses_the_configured_model():
+    qd, seen = _model_used()
+    qd.model = "gpt-5.4-mini"  # e.g. a consumer picking its own model
+    list(qd.send_query_streaming("go"))
+    assert seen["model"] == "gpt-5.4-mini"
+
+
+def test_streaming_in_audio_mode_stays_on_a_text_model():
+    qd, seen = _model_used(audio_output=True)
+    list(qd.send_query_streaming("go"))
+    assert seen["model"] == "gpt-4o-mini"
