@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "agent": {
-    "status": "Made all the timestamps timezone-aware so log times and generated filenames are unambiguous (UTC), and turned on a linter rule so naive timestamps can't sneak back in.",
-    "direction": "Get it reviewed and merged; same cleanup is going through the studio and main app too.",
-    "last_update": "2026-06-27T08:00:00Z"
+    "status": "Moving GANGLIA's brain off the OpenAI models that retire in January onto the new recommended one, with a single switch to roll back if it misbehaves.",
+    "direction": "Land this, then point the main GANGLIA app at it and watch real conversations for any change in tone or quest handling.",
+    "last_update": "2026-10-17T17:32:03Z"
   }
 }

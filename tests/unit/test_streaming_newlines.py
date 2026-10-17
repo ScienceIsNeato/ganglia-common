@@ -100,7 +100,8 @@ def test_streaming_uses_the_configured_model():
     assert seen["model"] == "gpt-5.4-mini"
 
 
-def test_streaming_in_audio_mode_stays_on_a_text_model():
+def test_streaming_in_audio_mode_stays_on_a_text_model(monkeypatch):
+    monkeypatch.delenv("GANGLIA_LLM_MODEL", raising=False)
     qd, seen = _model_used(audio_output=True)
     list(qd.send_query_streaming("go"))
-    assert seen["model"] == "gpt-4o-mini"
+    assert seen["model"] == "gpt-6-luna"

@@ -15,6 +15,11 @@ from typing import Any, Iterator
 from openai import OpenAI
 
 # Local imports
+from ganglia_common.llm_settings import (
+    audio_model,
+    reasoning_kwargs,
+    text_model,
+)
 from ganglia_common.logger import Logger
 from ganglia_common.utils.file_utils import get_tempdir
 from ganglia_common.utils.performance_profiler import is_timing_enabled
@@ -39,7 +44,8 @@ class ChatGPTQueryDispatcher:
         Args:
             pre_prompt (str, optional): Initial system prompt to set context
             config_file_path (str, optional): Path to configuration file
-            audio_output (bool): If True, use gpt-4o-audio-preview to get audio responses
+            audio_output (bool): If True, use the audio model (GANGLIA_LLM_AUDIO_MODEL)
+                to get audio responses
             audio_voice (str): Voice to use for audio output (alloy, echo, fable, onyx, nova, shimmer)
         """
         self.client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
@@ -51,7 +57,8 @@ class ChatGPTQueryDispatcher:
         self.messages: list[Any] = []
         self.audio_output = audio_output
         self.audio_voice = audio_voice
-        self.model = "gpt-4o-audio-preview" if audio_output else "gpt-4o-mini"
+        # Models come from llm_settings (env-overridable), not hard-coded here.
+        self.model = audio_model() if audio_output else text_model()
         # Token usage from the most recent LLM call ({"prompt_tokens",
         # "completion_tokens", "total_tokens"}), or None if unavailable. Read by
         # the server after a turn for cost telemetry (ADR 004).
@@ -93,7 +100,7 @@ class ChatGPTQueryDispatcher:
             Logger.print_debug("Sending query to AI server...")
 
         if self.audio_output:
-            # Use gpt-4o-audio-preview with audio output
+            # Audio-output model: text plus a spoken reply
             chat = self.client.chat.completions.create(
                 model=self.model,
                 modalities=["text", "audio"],
@@ -105,7 +112,9 @@ class ChatGPTQueryDispatcher:
         else:
             # Standard text-only response
             chat = self.client.chat.completions.create(
-                model=self.model, messages=messages_for_call
+                model=self.model,
+                messages=messages_for_call,
+                **reasoning_kwargs(self.model),
             )
             self._capture_usage(chat)
             reply = chat.choices[0].message.content or ""
@@ -161,7 +170,7 @@ class ChatGPTQueryDispatcher:
             }
 
     def _handle_audio_reply(self, chat: Any, start_time: float) -> Any:
-        """Unpack a gpt-4o-audio-preview response: save the WAV + transcript and
+        """Unpack an audio-output response: save the WAV + transcript and
         return ``(reply, audio_file)``, or fall back to text-only when the API
         returned no audio."""
         reply = chat.choices[0].message.content or ""
@@ -242,11 +251,13 @@ class ChatGPTQueryDispatcher:
         # Stream with the configured model, so a caller that sets `self.model`
         # gets it here too. Audio-output mode is the exception: its model only
         # answers in audio, and streaming is text-only.
+        stream_model = text_model() if self.audio_output else self.model
         stream = self.client.chat.completions.create(
-            model="gpt-4o-mini" if self.audio_output else self.model,
+            model=stream_model,
             messages=messages_for_call,
             stream=True,
             stream_options={"include_usage": True},
+            **reasoning_kwargs(stream_model),
         )
 
         full_response = ""
